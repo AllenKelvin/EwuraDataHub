@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Ewura Hub"
+version = "1.0.0"
+id = "artifacts/ewura-hub"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24723
+
+[services.development]
+run = "pnpm --filter @workspace/ewura-hub run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ewura-hub", "run", "build" ]
+publicDir = "artifacts/ewura-hub/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24723"
+BASE_PATH = "/"
