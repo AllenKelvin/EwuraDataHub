@@ -150,8 +150,8 @@ export default function Orders() {
                 const st = statusConfig[order.status] || statusConfig.pending;
                 const Icon = st.icon;
                 return (
-                  <div key={order.id} className="slide-in-left" style={{ animationDelay: `${idx * 50}ms` }}>
-                    <div className="bg-muted/40 rounded-xl p-4 border border-border/50">
+                  <div key={order.id} className="slide-in-left" data-delay={Math.min(idx, 7)}>
+                    <div className="bg-muted/40 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className={`w-8 h-8 rounded-lg ${net.bg} flex items-center justify-center flex-shrink-0`}>

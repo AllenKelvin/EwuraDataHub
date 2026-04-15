@@ -87,8 +87,8 @@ export default function AdminAgents() {
           </div>
         ) : (
           <div>
-            {data.agents.map((agent: any) => (
-              <div key={agent.id} className="border-b border-border last:border-b-0">
+            {data.agents.map((agent: any, idx: number) => (
+              <div key={agent.id} className="border-b border-border last:border-b-0 slide-in-left" data-delay={Math.min(idx, 7)}>
                 {/* Agent row */}
                 <div className="px-5 py-4 flex flex-wrap items-center gap-4">
                   {/* Avatar + info */}
