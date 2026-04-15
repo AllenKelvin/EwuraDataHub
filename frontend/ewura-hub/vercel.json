@@ -4,7 +4,6 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "devCommand": "pnpm dev",
   "framework": "vite",
-  "nodeVersion": "20.x",
   "env": {
     "VITE_API_URL": {
       "description": "API server URL",
@@ -14,9 +13,6 @@
       "default": "Ewura Hub",
       "description": "Application name"
     }
-  },
-  "buildConfig": {
-    "distDir": "dist"
   },
   "routes": [
     {
