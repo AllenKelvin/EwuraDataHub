@@ -31,7 +31,11 @@ export default function Orders() {
   if (networkFilter !== "all") params.network = networkFilter;
 
   const { data, isLoading } = useGetOrders(params, {
-    query: { queryKey: getGetOrdersQueryKey(params) }
+    query: { 
+      queryKey: getGetOrdersQueryKey(params),
+      retry: 3,
+      retryDelay: 500,
+    }
   });
 
   return (
@@ -86,7 +90,8 @@ export default function Orders() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 border-b border-border">
@@ -137,6 +142,66 @@ export default function Orders() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View - Slide Animation */}
+            <div className="md:hidden space-y-3 p-4">
+              {data.orders.map((order: any, idx: number) => {
+                const net = NETWORKS[order.network] || { dot: "bg-muted-foreground", bg: "bg-muted", text: "text-muted-foreground" };
+                const st = statusConfig[order.status] || statusConfig.pending;
+                const Icon = st.icon;
+                return (
+                  <div key={order.id} className="slide-in-left" style={{ animationDelay: `${idx * 50}ms` }}>
+                    <div className="bg-muted/40 rounded-xl p-4 border border-border/50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg ${net.bg} flex items-center justify-center flex-shrink-0`}>
+                            <div className={`w-2.5 h-2.5 rounded-full ${net.dot}`} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Network</p>
+                            <p className="font-bold text-sm">{order.network}</p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
+                          <Icon className="h-3 w-3" />
+                          {st.label}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground">Package</p>
+                          <p className="font-bold text-sm">{order.productName}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Recipient</p>
+                            <p className="font-mono text-xs text-foreground">{order.recipientPhone}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Amount</p>
+                            <p className="font-black text-sm">₵{order.amount.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Payment</p>
+                            <span className={`text-xs font-semibold px-2 py-1 rounded block w-fit capitalize ${paymentBadge[order.paymentMethod] || "bg-muted text-muted-foreground"}`}>
+                              {order.paymentMethod}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Date</p>
+                            <p className="text-xs text-foreground">{new Date(order.createdAt).toLocaleDateString("en-GH")}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {data.pages > 1 && (
               <div className="flex justify-center gap-1.5 p-4 border-t border-border">
                 {Array.from({ length: data.pages }, (_, i) => i + 1).map((p) => (

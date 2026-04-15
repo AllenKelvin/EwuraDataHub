@@ -52,10 +52,16 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
         clearAuth();
+        onClose?.();
+        window.location.href = "/";
+      },
+      onError: () => {
+        // Logout even if API call fails
+        clearAuth();
+        onClose?.();
         window.location.href = "/";
       },
     });
-    onClose?.();
   };
 
   return (

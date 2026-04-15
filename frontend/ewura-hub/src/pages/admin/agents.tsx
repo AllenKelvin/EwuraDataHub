@@ -21,7 +21,11 @@ export default function AdminAgents() {
   const params: any = { limit: 15, page };
 
   const { data, isLoading } = useGetAdminAgents(params, {
-    query: { queryKey: getGetAdminAgentsQueryKey(params) }
+    query: { 
+      queryKey: getGetAdminAgentsQueryKey(params),
+      retry: 3,
+      retryDelay: 500,
+    }
   });
   const verifyMutation = useVerifyAgent();
   const adjustBalanceMutation = useAdjustAgentBalance();

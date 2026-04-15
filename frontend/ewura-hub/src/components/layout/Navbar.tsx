@@ -25,6 +25,13 @@ export function Navbar() {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
         clearAuth();
+        setIsOpen(false);
+        setLocation("/");
+      },
+      onError: () => {
+        // Logout even if API call fails (session might be lost)
+        clearAuth();
+        setIsOpen(false);
         setLocation("/");
       },
     });
