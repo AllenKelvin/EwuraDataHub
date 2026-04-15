@@ -3,9 +3,11 @@ services:
     name: ewura-hub-api
     runtime: node
     plan: standard
-    buildCommand: pnpm install --frozen-lockfile && pnpm workspace @workspace/api-server build
+    buildCommand: cd backend/api-server && pnpm install && pnpm build
     startCommand: cd backend/api-server && pnpm start
     envVars:
+      - key: ENABLE_PNPM
+        value: "true"
       - key: NODE_ENV
         value: production
       - key: PORT
