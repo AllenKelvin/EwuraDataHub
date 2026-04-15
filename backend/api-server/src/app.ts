@@ -87,9 +87,9 @@ if (process.env.NODE_ENV === "production" && sessionSecret === "ewura-hub-dev-se
 app.use(session({
   secret: sessionSecret,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true",
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",

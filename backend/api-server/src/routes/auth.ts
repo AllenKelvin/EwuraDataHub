@@ -32,18 +32,28 @@ router.post("/register", async (req: Request, res: Response) => {
 
     req.session.userId = user._id.toString();
 
-    return res.status(201).json({
-      user: {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isVerified: user.isVerified,
-        walletBalance: user.walletBalance,
-        createdAt: user.createdAt,
-      },
-      message: "Account created successfully",
+    // Explicitly save session before sending response
+    return new Promise((resolve) => {
+      req.session.save((err) => {
+        if (err) {
+          req.log.error({ err }, "Session save error during register");
+          return res.status(500).json({ error: "Session save failed" });
+        }
+        
+        return res.status(201).json({
+          user: {
+            id: user._id.toString(),
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            isVerified: user.isVerified,
+            walletBalance: user.walletBalance,
+            createdAt: user.createdAt,
+          },
+          message: "Account created successfully",
+        });
+      });
     });
   } catch (err) {
     req.log.error({ err }, "Register error");
@@ -72,19 +82,29 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     req.session.userId = user._id.toString();
-
-    return res.status(200).json({
-      user: {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isVerified: user.isVerified,
-        walletBalance: user.walletBalance,
-        createdAt: user.createdAt,
-      },
-      message: "Login successful",
+    
+    // Explicitly save session before sending response
+    return new Promise((resolve) => {
+      req.session.save((err) => {
+        if (err) {
+          req.log.error({ err }, "Session save error during login");
+          return res.status(500).json({ error: "Session save failed" });
+        }
+        
+        return res.status(200).json({
+          user: {
+            id: user._id.toString(),
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            isVerified: user.isVerified,
+            walletBalance: user.walletBalance,
+            createdAt: user.createdAt,
+          },
+          message: "Login successful",
+        });
+      });
     });
   } catch (err) {
     req.log.error({ err }, "Login error");
@@ -93,8 +113,17 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 router.post("/logout", (req: Request, res: Response) => {
-  req.session.destroy(() => {
-    res.clearCookie("connect.sid");
+  req.session.destroy((err) => {
+    if (err) {
+      req.log.error({ err }, "Logout error");
+      return res.status(500).json({ error: "Logout failed" });
+    }
+    res.clearCookie("connect.sid", {
+      path: "/",
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true",
+    });
     return res.json({ message: "Logged out" });
   });
 });
