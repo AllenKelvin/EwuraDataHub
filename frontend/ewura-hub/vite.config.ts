@@ -45,7 +45,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
     sourcemap: false,
-    minify: process.env.NODE_ENV === "production" ? "terser" : false,
+    minify: "terser",
     rollupOptions: {
       output: {
         manualChunks: {
