@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: ewura-hub-api
+    runtime: node
+    plan: standard
+    buildCommand: pnpm install --frozen-lockfile && pnpm workspace @workspace/api-server build
+    startCommand: cd backend/api-server && pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: ewura-hub-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: LOG_LEVEL
+        value: info
+      - key: FRONTEND_URL
+        scope: all
+      - key: ALLOWED_ORIGINS
+        scope: all
+      - key: PAYSTACK_PUBLIC_KEY
+        scope: all
+      - key: PAYSTACK_SECRET_KEY
+        scope: all
+
+databases:
+  - name: ewura-hub-db
+    plan: standard
+    databaseName: ewura-hub-prod
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Allow all IPs
+
+autoDeploy: true

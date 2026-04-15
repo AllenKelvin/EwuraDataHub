@@ -1,0 +1,167 @@
+version: '3.9'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: ewura-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+      MONGO_INITDB_DATABASE: ewura-hub
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_configdb:/data/configdb
+    ports:
+      - "27017:27017"
+    networks:
+      - ewura-network
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Backend API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: ewura-api
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      LOG_LEVEL: info
+      MONGODB_URI: mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-changeme}@mongodb:27017/ewura-hub?authSource=admin
+      SESSION_SECRET: ${SESSION_SECRET}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY}
+      FRONTEND_URL: ${FRONTEND_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    ports:
+      - "8080:8080"
+    networks:
+      - ewura-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "app=ewura-api"
+
+  # Frontend Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        PORT: 80
+        BASE_PATH: /
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: ewura-web
+    environment:
+      NODE_ENV: production
+      PORT: 80
+    depends_on:
+      - api
+    networks:
+      - ewura-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ewura-nginx
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - ewura-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Certbot for SSL Certificate Management
+  certbot:
+    image: certbot/certbot
+    container_name: ewura-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot -q; sleep 12h & wait $${!}; done;'
+    restart: unless-stopped
+    networks:
+      - ewura-network
+
+  # Optional: Redis for Caching (commented out by default)
+  # redis:
+  #   image: redis:alpine
+  #   container_name: ewura-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - ewura-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_configdb:
+    driver: local
+  nginx_logs:
+    driver: local
+  # redis_data:
+  #   driver: local
+
+networks:
+  ewura-network:
+    driver: bridge

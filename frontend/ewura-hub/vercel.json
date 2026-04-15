@@ -1,0 +1,52 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "devCommand": "pnpm dev",
+  "framework": "vite",
+  "nodeVersion": "20.x",
+  "env": {
+    "VITE_API_URL": {
+      "description": "API server URL",
+      "required": true
+    },
+    "VITE_APP_NAME": {
+      "default": "Ewura Hub",
+      "description": "Application name"
+    }
+  },
+  "buildConfig": {
+    "distDir": "dist"
+  },
+  "routes": [
+    {
+      "src": "/api/.*",
+      "status": 404
+    },
+    {
+      "src": "/.*",
+      "methods": ["GET", "HEAD"],
+      "dest": "/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate"
+        }
+      ]
+    }
+  ]
+}
