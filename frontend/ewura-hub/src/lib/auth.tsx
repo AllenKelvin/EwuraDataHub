@@ -41,6 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (newUser: User) => {
     setUser(newUser);
     queryClient.setQueryData(getGetMeQueryKey(), newUser);
+    // Force refetch on mobile after login to ensure session persists
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    }, 500);
   };
 
   const logout = () => {

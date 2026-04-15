@@ -27,7 +27,9 @@ export default function Dashboard() {
     { limit: 8, page: 1 },
     { query: { 
       enabled: !!user,
-      queryKey: getGetOrdersQueryKey({ limit: 8, page: 1 }) 
+      queryKey: getGetOrdersQueryKey({ limit: 8, page: 1 }),
+      retry: 3,
+      retryDelay: 500,
     } }
   );
   const { data: walletData } = useGetWallet({
