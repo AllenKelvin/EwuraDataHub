@@ -23,6 +23,24 @@ export default function Cart() {
   const queryClient = useQueryClient();
   const isAgent = user?.role === "agent";
 
+  // Redirect to login if not authenticated
+  if (!user) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mb-5">
+          <ShoppingCart className="h-10 w-10 text-muted-foreground opacity-40" />
+        </div>
+        <h2 className="text-xl font-black text-foreground mb-2">Authentication Required</h2>
+        <p className="text-muted-foreground text-sm mb-6">Please log in to complete your purchase.</p>
+        <Link href="/login">
+          <Button className="gap-2">
+            Log In
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "paystack">(isAgent ? "wallet" : "paystack");
 
   const { data: walletData } = useGetWallet({
@@ -90,6 +108,21 @@ export default function Cart() {
         onError: (err: any) => {
           console.error('Order creation error:', err);
           let errorMsg = "Failed to place order";
+          
+          // Handle authentication errors
+          if (err?.response?.status === 401) {
+            errorMsg = "Your session has expired. Please log in again.";
+            toast({ 
+              title: "Session Expired", 
+              description: errorMsg,
+              variant: "destructive" 
+            });
+            // Redirect to login after showing toast
+            setTimeout(() => {
+              navigate("/login");
+            }, 2000);
+            return;
+          }
           
           // Try to extract detailed error message
           if (err?.response?.data?.error) {
