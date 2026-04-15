@@ -2,9 +2,10 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
+import MongoStore from "connect-mongo";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { connectMongoDB } from "./lib/mongodb";
+import { connectMongoDB, mongoose } from "./lib/mongodb";
 import { seedAdminAccounts } from "./lib/seed";
 
 const app: Express = express();
@@ -84,10 +85,26 @@ if (process.env.NODE_ENV === "production" && sessionSecret === "ewura-hub-dev-se
   logger.warn("⚠️  WARNING: Using default SESSION_SECRET in production! Please set SESSION_SECRET environment variable.");
 }
 
+// Session store - uses MongoDB if URI is configured
+let sessionStore: any;
+if (process.env.MONGODB_URI) {
+  sessionStore = new MongoStore({
+    mongoUrl: process.env.MONGODB_URI,
+    dbName: process.env.MONGODB_DB || "ewura-hub",
+    collection: "sessions",
+    touchAfter: 24 * 3600, // Lazy session update (touch every 24 hours)
+    connectionOptions: {
+      maxPoolSize: 10,
+      minPoolSize: 2,
+    },
+  });
+}
+
 app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: true,
+  store: sessionStore,
   cookie: {
     secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true",
     httpOnly: true,
