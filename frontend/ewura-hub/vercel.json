@@ -4,15 +4,10 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "devCommand": "pnpm dev",
   "framework": "vite",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/.*",
-      "status": 404
-    },
-    {
-      "src": "/.*",
-      "methods": ["GET", "HEAD"],
-      "dest": "/"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
