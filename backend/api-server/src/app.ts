@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import router from "./routes";
+import agentApiRouter from "./routes/agent-api";
 import { logger } from "./lib/logger";
 import { connectMongoDB, mongoose } from "./lib/mongodb";
 import { seedAdminAccounts } from "./lib/seed";
@@ -59,7 +60,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   maxAge: 86400, // 24 hours
 }));
 
@@ -126,6 +127,10 @@ app.get("/", (_req, res) => {
   });
 });
 
+// Main API routes
 app.use("/api", router);
+
+// Agent API v2.0 routes
+app.use("/agent-api", agentApiRouter);
 
 export default app;
