@@ -102,6 +102,7 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "jsonwebtoken",
     ],
     sourcemap: "linked",
     plugins: [
