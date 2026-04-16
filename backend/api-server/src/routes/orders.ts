@@ -90,8 +90,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       // Call vendor API if configured and product has vendor ID
       if (vendorClient && vendorProductId && VendorAPIClient.validatePhoneNumber(recipientPhone)) {
         try {
-          req.log.info(`Calling vendor API for wallet payment. Product: ${productId}, Phone: ${recipientPhone}`);
-          const vendorResponse = await vendorClient.createOrder(vendorProductId, recipientPhone);
+          // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
+          const formattedPhone = VendorAPIClient.formatPhoneNumber(recipientPhone);
+          req.log.info(`Calling vendor API for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+          const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
           vendorOrderId = vendorResponse.order.id;
           req.log.info(`Vendor order created successfully. Vendor Order ID: ${vendorOrderId}`);
         } catch (vendorErr) {

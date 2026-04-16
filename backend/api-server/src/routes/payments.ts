@@ -92,8 +92,9 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
           const vendorProductId = product?.vendorProductId;
           
           if (vendorProductId && VendorAPIClient.validatePhoneNumber(order.recipientPhone)) {
-            req.log.info(`Calling vendor API for Paystack order. Product: ${order.productId}, Phone: ${order.recipientPhone}`);
-            const vendorResponse = await vendorClient.createOrder(vendorProductId, order.recipientPhone);
+            const formattedPhone = VendorAPIClient.formatPhoneNumber(order.recipientPhone);
+            req.log.info(`Calling vendor API for Paystack order. Product: ${order.productId}, Phone: ${order.recipientPhone} → ${formattedPhone}`);
+            const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
             order.vendorOrderId = vendorResponse.order.id;
             order.vendorProductId = vendorProductId;
             // Set to processing while vendor fulfills
@@ -174,8 +175,9 @@ router.post("/webhook", async (req: Request, res: Response) => {
             const vendorProductId = product?.vendorProductId;
             
             if (vendorProductId && VendorAPIClient.validatePhoneNumber(order.recipientPhone)) {
-              req.log.info(`Calling vendor API for webhook order. Product: ${order.productId}, Phone: ${order.recipientPhone}`);
-              const vendorResponse = await vendorClient.createOrder(vendorProductId, order.recipientPhone);
+              const formattedPhone = VendorAPIClient.formatPhoneNumber(order.recipientPhone);
+              req.log.info(`Calling vendor API for webhook order. Product: ${order.productId}, Phone: ${order.recipientPhone} → ${formattedPhone}`);
+              const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
               order.vendorOrderId = vendorResponse.order.id;
               order.vendorProductId = vendorProductId;
               // Set to processing while vendor fulfills

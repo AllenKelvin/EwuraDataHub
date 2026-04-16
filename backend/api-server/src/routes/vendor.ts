@@ -64,10 +64,13 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
     }
 
     try {
+      // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
+      const formattedPhone = VendorAPIClient.formatPhoneNumber(phonenumber);
+      
       // Create order with vendor
       const vendorResponse = await vendorClient.createOrder(
         vendorProductId,
-        phonenumber
+        formattedPhone
       );
 
       const vendorOrder = vendorResponse.order;
