@@ -192,7 +192,8 @@ class VendorAPIClient {
   }
 
   /**
-   * Format phone number to standard format
+   * Format phone number to standard format (10 digits: 0XXXXXXXXX)
+   * API requires exactly 10 digits, not 12-digit international format
    */
   static formatPhoneNumber(phoneNumber: string): string {
     let cleaned = phoneNumber
@@ -200,13 +201,20 @@ class VendorAPIClient {
       .replace(/ /g, "")
       .replace(/\+/g, "");
 
-    // Convert to international format (233XXXXXXXXX)
-    if (cleaned.startsWith("0")) {
-      return "233" + cleaned.slice(1);
+    // Keep in 10-digit format (0XXXXXXXXX) expected by API
+    if (cleaned.startsWith("233")) {
+      // International format: remove 233 and add 0
+      return "0" + cleaned.slice(3);
     }
 
-    if (!cleaned.startsWith("233")) {
-      return "233" + cleaned;
+    if (cleaned.startsWith("0")) {
+      // Already in correct format
+      return cleaned;
+    }
+
+    // 9 digits without prefix: add 0
+    if (cleaned.length === 9) {
+      return "0" + cleaned;
     }
 
     return cleaned;
