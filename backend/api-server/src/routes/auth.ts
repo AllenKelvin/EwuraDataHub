@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { User } from "../models/User";
+import { generateToken } from "../lib/jwt";
 
 const router = Router();
 
@@ -40,6 +41,9 @@ router.post("/register", async (req: Request, res: Response) => {
           return res.status(500).json({ error: "Session save failed" });
         }
         
+        // Generate JWT token for mobile support
+        const token = generateToken(user);
+        
         return res.status(201).json({
           user: {
             id: user._id.toString(),
@@ -51,6 +55,7 @@ router.post("/register", async (req: Request, res: Response) => {
             walletBalance: user.walletBalance,
             createdAt: user.createdAt,
           },
+          token,
           message: "Account created successfully",
         });
       });
@@ -91,6 +96,9 @@ router.post("/login", async (req: Request, res: Response) => {
           return res.status(500).json({ error: "Session save failed" });
         }
         
+        // Generate JWT token for mobile support
+        const token = generateToken(user);
+        
         return res.status(200).json({
           user: {
             id: user._id.toString(),
@@ -102,6 +110,7 @@ router.post("/login", async (req: Request, res: Response) => {
             walletBalance: user.walletBalance,
             createdAt: user.createdAt,
           },
+          token,
           message: "Login successful",
         });
       });

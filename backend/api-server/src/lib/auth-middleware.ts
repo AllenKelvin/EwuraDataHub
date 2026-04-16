@@ -1,8 +1,24 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { User } from "../models/User";
+import { extractTokenFromHeader, verifyToken } from "./jwt";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const userId = req.session?.userId;
+  let userId: string | null = null;
+
+  // First, try to get userId from session (backward compatibility)
+  if (req.session?.userId) {
+    userId = req.session.userId;
+  } else {
+    // Try to get from JWT token in Authorization header
+    const token = extractTokenFromHeader(req.headers.authorization);
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload) {
+        userId = payload.userId;
+      }
+    }
+  }
+
   if (!userId) {
     return res.status(401).json({ error: "Not authenticated" });
   }
