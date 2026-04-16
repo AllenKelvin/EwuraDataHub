@@ -98,7 +98,7 @@ export default function Cart() {
               title: "Redirecting to Paystack", 
               description: "You will be redirected to complete your payment" 
             });
-            // Give toast time to show before redirect
+            // Give toast time to show before redirect to Paystack
             setTimeout(() => {
               window.location.href = res.paymentUrl;
             }, 800);
@@ -109,7 +109,11 @@ export default function Cart() {
               description: res.message || "Your order has been saved and will be processed" 
             });
             clearCart();
-            navigate("/dashboard");
+            
+            // Refresh page to show updated orders and wallet balance
+            setTimeout(() => {
+              window.location.href = "/dashboard";
+            }, 1500);
           }
         },
         onError: (err: any) => {

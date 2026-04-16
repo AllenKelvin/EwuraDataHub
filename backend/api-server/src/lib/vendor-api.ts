@@ -74,8 +74,14 @@ class VendorAPIClient {
     this.baseUrl = baseUrl || "https://api.allendatahub.com";
 
     if (!this.apiKey) {
+      console.error("❌ VENDOR_API_KEY environment variable is not set!");
+      console.error("   Please set: VENDOR_API_KEY=adh_<your_key>");
       throw new Error("VENDOR_API_KEY environment variable is not set");
     }
+
+    console.log(`✅ VendorAPIClient initialized with:`);
+    console.log(`   Base URL: ${this.baseUrl}`);
+    console.log(`   API Key: ${this.apiKey.slice(0, 8)}...${this.apiKey.slice(-4)}`);
   }
 
   private getHeaders(): HeadersInit {
@@ -91,6 +97,16 @@ class VendorAPIClient {
     body?: unknown
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const startTime = Date.now();
+
+    console.log(`
+📤 [${requestId}] VENDOR API REQUEST
+   Method:   ${method}
+   URL:      ${url}
+   Headers:  X-API-Key: ${this.apiKey.slice(0, 8)}...${this.apiKey.slice(-4)}
+   Body:     ${body ? JSON.stringify(body) : "none"}
+`);
 
     try {
       const response = await fetch(url, {
@@ -100,17 +116,54 @@ class VendorAPIClient {
         signal: AbortSignal.timeout(this.timeout),
       });
 
+      const duration = Date.now() - startTime;
+      const responseBody = await response.json() as any;
+
       if (!response.ok) {
-        const error = await response.json() as any;
-        throw new Error(
-          `Vendor API Error (${response.status}): ${error.message || response.statusText}`
+        console.error(`
+❌ [${requestId}] VENDOR API ERROR (${response.status})
+   Duration: ${duration}ms
+   Status:   ${response.status} ${response.statusText}
+   Error:    ${responseBody.error || responseBody.message || "Unknown error"}
+   Details:  ${JSON.stringify(responseBody, null, 2)}
+`);
+
+        const errorMessage = responseBody.message || responseBody.error || response.statusText;
+        const error = new Error(
+          `Vendor API Error (${response.status}): ${errorMessage}`
         );
+        (error as any).statusCode = response.status;
+        (error as any).responseBody = responseBody;
+        (error as any).requestId = requestId;
+        throw error;
       }
 
-      return await response.json() as T;
+      console.log(`
+✅ [${requestId}] VENDOR API SUCCESS
+   Duration: ${duration}ms
+   Status:   ${response.status}
+   Response: ${JSON.stringify(responseBody, null, 2)}
+`);
+
+      return responseBody as T;
     } catch (err) {
+      const duration = Date.now() - startTime;
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      
+      console.error(`
+❌ [${requestId}] VENDOR API REQUEST FAILED (${duration}ms)
+   Error Type: ${(err as any)?.constructor?.name || "Unknown"}
+   Error: ${errorMsg}
+   Stack: ${err instanceof Error ? err.stack : "N/A"}
+`);
+
       if (err instanceof Error) {
-        throw new Error(`Vendor API Request failed: ${err.message}`);
+        const enhancedError = new Error(
+          `Vendor API Request failed: ${err.message}`
+        );
+        (enhancedError as any).requestId = requestId;
+        (enhancedError as any).originalError = err;
+        throw enhancedError;
       }
       throw err;
     }
@@ -134,12 +187,50 @@ class VendorAPIClient {
     productId: string,
     phoneNumber: string
   ): Promise<{ order: VendorOrder }> {
+    // Validate and normalize phone number
+    const phoneValidation = this.validatePhoneNumber(phoneNumber);
+    if (!phoneValidation.valid) {
+      console.error(`
+❌ INVALID PHONE NUMBER
+   Raw Input:    ${phoneNumber}
+   Error:        ${phoneValidation.error}
+   Expected:     0XXXXXXXXX format (10 digits)
+   Examples:     0541234567, +233541234567, 541234567
+`);
+      throw new Error(`Invalid phone number: ${phoneValidation.error}`);
+    }
+
+    const normalizedPhone = phoneValidation.normalized!;
+    console.log(`
+📞 PHONE NUMBER NORMALIZATION
+   Input:        ${phoneNumber}
+   Normalized:   ${normalizedPhone}
+   Valid:        ✅
+`);
+
+    // Validate product ID format
+    if (!/^[a-f0-9]{24}$/.test(productId) && !/^[a-zA-Z0-9_-]{5,}$/.test(productId)) {
+      console.error(`
+❌ INVALID PRODUCT ID
+   Product ID:   ${productId}
+   Format:       Must be 24-char hex (MongoDB) or vendor product ID
+`);
+      throw new Error(`Invalid product ID format: ${productId}`);
+    }
+
+    console.log(`
+🛒 CREATING VENDOR ORDER
+   Product ID:   ${productId}
+   Phone:        ${normalizedPhone}
+   Payload:      {"productId": "${productId}", "phoneNumber": "${normalizedPhone}"}
+`);
+
     return this.request<{ order: VendorOrder }>(
       "POST",
       "/api/v1/orders",
       {
         productId,
-        phoneNumber,
+        phoneNumber: normalizedPhone,
       }
     );
   }
@@ -181,6 +272,22 @@ class VendorAPIClient {
       "GET",
       `/api/v1/orders/${orderId}`
     );
+  }
+
+  /**
+   * Normalize phone number to 0XXXXXXXXX format
+   * Accepts any reasonable phone number format and auto-corrects
+   * 
+   * Accepted formats:
+   * - 0541234567 (10 digits with 0) → 0541234567 ✅
+   * - 541234567 (9 digits without 0) → 0541234567 ✅
+   * - +233541234567 (international with +) → 0541234567 ✅
+   * - 233541234567 (international without +) → 0541234567 ✅
+   * - 0541 234 567 (with spaces) → 0541234567 ✅
+   * - 0541-234-567 (with dashes) → 0541234567 ✅
+   */
+  private validatePhoneNumber(phone: string): PhoneNormalizationResult {
+    return VendorAPIClient.normalizePhoneNumber(phone);
   }
 
   /**
