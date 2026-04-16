@@ -1,6 +1,12 @@
 /**
  * Vendor API Client - AllenDataHub Integration
  * Handles all communication with the AllenDataHub API
+ * 
+ * Features:
+ * - Automatic phone number normalization (accepts any format)
+ * - Request ID tracking for debugging
+ * - Structured error responses with helpful messages
+ * - Full webhook support
  */
 
 export type VendorProduct = {
@@ -50,6 +56,12 @@ export type VendorOrderDetail = {
     timestamp: string;
     message: string;
   }>;
+};
+
+export type PhoneNormalizationResult = {
+  valid: boolean;
+  normalized?: string;
+  error?: string;
 };
 
 class VendorAPIClient {
@@ -172,52 +184,66 @@ class VendorAPIClient {
   }
 
   /**
+   * Normalize phone number to 0XXXXXXXXX format
+   * Accepts any reasonable phone number format and auto-corrects
+   * 
+   * Accepted formats:
+   * - 0541234567 (10 digits with 0) → 0541234567 ✅
+   * - 541234567 (9 digits without 0) → 0541234567 ✅
+   * - +233541234567 (international with +) → 0541234567 ✅
+   * - 233541234567 (international without +) → 0541234567 ✅
+   * - 0541 234 567 (with spaces) → 0541234567 ✅
+   * - 0541-234-567 (with dashes) → 0541234567 ✅
+   */
+  static normalizePhoneNumber(phone: string): PhoneNormalizationResult {
+    if (!phone || typeof phone !== "string") {
+      return {
+        valid: false,
+        error: "Phone number is required",
+      };
+    }
+
+    // Remove all non-digit characters
+    let cleaned = phone.replace(/\D/g, "");
+
+    // Handle different formats
+    if (cleaned.startsWith("233") && cleaned.length === 12) {
+      // International: 233541234567 → 0541234567
+      cleaned = "0" + cleaned.slice(3);
+    } else if (cleaned.startsWith("0") && cleaned.length === 10) {
+      // Already correct: 0541234567 → 0541234567
+      cleaned = cleaned;
+    } else if (cleaned.length === 9) {
+      // No prefix: 541234567 → 0541234567
+      cleaned = "0" + cleaned;
+    } else {
+      return {
+        valid: false,
+        error: `Invalid phone format. Expected format: 0XXXXXXXXX (10 digits). Examples: "0541234567", "+233541234567", "541234567". Received: "${phone}"`,
+      };
+    }
+
+    return { valid: true, normalized: cleaned };
+  }
+
+  /**
    * Validate phone number format (before sending to vendor)
    */
   static validatePhoneNumber(phoneNumber: string): boolean {
-    // Remove common formatting
-    const cleaned = phoneNumber
-      .replace(/-/g, "")
-      .replace(/ /g, "")
-      .replace(/\+/g, "");
-
-    // Check various Ghanaian formats
-    const patterns = [
-      /^233\d{9}$/, // +233XXXXXXXXX format
-      /^0\d{9}$/, // 0XXXXXXXXX format
-      /^\d{9}$/, // XXXXXXXXX format (9 digits)
-    ];
-
-    return patterns.some((pattern) => pattern.test(cleaned));
+    const result = this.normalizePhoneNumber(phoneNumber);
+    return result.valid;
   }
 
   /**
    * Format phone number to standard format (10 digits: 0XXXXXXXXX)
-   * API requires exactly 10 digits, not 12-digit international format
+   * Wrapper around normalizePhoneNumber for backward compatibility
    */
   static formatPhoneNumber(phoneNumber: string): string {
-    let cleaned = phoneNumber
-      .replace(/-/g, "")
-      .replace(/ /g, "")
-      .replace(/\+/g, "");
-
-    // Keep in 10-digit format (0XXXXXXXXX) expected by API
-    if (cleaned.startsWith("233")) {
-      // International format: remove 233 and add 0
-      return "0" + cleaned.slice(3);
+    const result = this.normalizePhoneNumber(phoneNumber);
+    if (!result.valid) {
+      throw new Error(result.error);
     }
-
-    if (cleaned.startsWith("0")) {
-      // Already in correct format
-      return cleaned;
-    }
-
-    // 9 digits without prefix: add 0
-    if (cleaned.length === 9) {
-      return "0" + cleaned;
-    }
-
-    return cleaned;
+    return result.normalized!;
   }
 }
 
