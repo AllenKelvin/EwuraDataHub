@@ -13,6 +13,7 @@ import BuyData from "@/pages/buy-data";
 import Cart from "@/pages/cart";
 import Orders from "@/pages/orders";
 import Wallet from "@/pages/wallet";
+import PaymentCallback from "@/pages/payment-callback";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminAgents from "@/pages/admin/agents";
 import AdminOrders from "@/pages/admin/orders";
@@ -111,6 +112,14 @@ function Router() {
         {() => (
           <AppLayout>
             <ProtectedRoute component={Wallet} allowedRoles={["agent"]} />
+          </AppLayout>
+        )}
+      </Route>
+
+      <Route path="/payment-callback">
+        {() => (
+          <AppLayout>
+            <ProtectedRoute component={PaymentCallback} allowedRoles={["user", "agent"]} />
           </AppLayout>
         )}
       </Route>
