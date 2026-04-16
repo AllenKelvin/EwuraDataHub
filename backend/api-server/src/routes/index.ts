@@ -6,6 +6,7 @@ import orders from "./orders";
 import wallet from "./wallet";
 import payments from "./payments";
 import admin from "./admin";
+import vendor from "./vendor";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/orders", orders);
 router.use("/wallet", wallet);
 router.use("/payments", payments);
 router.use("/admin", admin);
+router.use("/vendor", vendor);
 
 export default router;

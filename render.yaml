@@ -18,16 +18,25 @@ services:
           property: connectionString
       - key: SESSION_SECRET
         generateValue: true
+      - key: JWT_SECRET
+        scope: all
+      - key: JWT_EXPIRY
+        value: "7d"
       - key: LOG_LEVEL
         value: info
       - key: FRONTEND_URL
         scope: all
-      - key: ALLOWED_ORIGINS
+      - key: CORS_ORIGIN
         scope: all
       - key: PAYSTACK_PUBLIC_KEY
         scope: all
       - key: PAYSTACK_SECRET_KEY
         scope: all
+      # Vendor API (AllenDataHub Integration)
+      - key: VENDOR_API_KEY
+        scope: all
+      - key: VENDOR_API_URL
+        value: https://api.allendatahub.com
 
 databases:
   - name: ewura-hub-db
