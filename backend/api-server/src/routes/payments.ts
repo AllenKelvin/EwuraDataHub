@@ -2,9 +2,23 @@ import { Router, type Request, type Response } from "express";
 import { Order } from "../models/Order";
 import { User } from "../models/User";
 import { WalletTransaction } from "../models/WalletTransaction";
+import { Package } from "../models/Package";
 import { requireAuth } from "../lib/auth-middleware";
+import VendorAPIClient from "../lib/vendor-api";
 
 const router = Router();
+
+// Initialize vendor API client
+let vendorClient: VendorAPIClient | null = null;
+try {
+  vendorClient = new VendorAPIClient(
+    process.env.VENDOR_API_KEY,
+    process.env.VENDOR_API_URL
+  );
+} catch (err) {
+  console.warn("⚠ Vendor API client initialization failed in payments route");
+  vendorClient = null;
+}
 
 router.post("/initialize", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -71,7 +85,35 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
 
     const order = await Order.findOne({ paymentReference: reference });
     if (order && order.status === "pending") {
-      order.status = "completed";
+      // Try to call vendor API if this is a product order (not wallet fund)
+      if (vendorClient && order.paymentMethod === "paystack" && !data.data.metadata?.type) {
+        try {
+          const product = await Package.findById(order.productId);
+          const vendorProductId = product?.vendorProductId;
+          
+          if (vendorProductId && VendorAPIClient.validatePhoneNumber(order.recipientPhone)) {
+            req.log.info(`Calling vendor API for Paystack order. Product: ${order.productId}, Phone: ${order.recipientPhone}`);
+            const vendorResponse = await vendorClient.createOrder(vendorProductId, order.recipientPhone);
+            order.vendorOrderId = vendorResponse.order.id;
+            order.vendorProductId = vendorProductId;
+            // Set to processing while vendor fulfills
+            order.status = "processing";
+            req.log.info(`Vendor order created successfully. Vendor Order ID: ${order.vendorOrderId}`);
+          } else if (!vendorProductId) {
+            req.log.warn(`Cannot call vendor API: Product ${order.productId} does not have vendorProductId`);
+            // Mark as completed if no vendor API
+            order.status = "completed";
+          }
+        } catch (vendorErr) {
+          req.log.warn({ err: vendorErr }, `Vendor API call failed for Paystack order: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
+          // Still mark as completed even if vendor API fails
+          order.status = "completed";
+        }
+      } else {
+        // Mark as completed if it's a wallet fund or no vendor client
+        order.status = "completed";
+      }
+
       await order.save();
 
       const metadata = data.data.metadata;
@@ -105,6 +147,8 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
         status: order.status,
         paymentMethod: order.paymentMethod,
         paymentReference: order.paymentReference,
+        vendorOrderId: order.vendorOrderId,
+        vendorStatus: order.vendorStatus,
         createdAt: order.createdAt,
       } : undefined,
     });
@@ -123,7 +167,35 @@ router.post("/webhook", async (req: Request, res: Response) => {
       const reference = event.data.reference;
       const order = await Order.findOne({ paymentReference: reference });
       if (order && order.status === "pending") {
-        order.status = "completed";
+        // Try to call vendor API if this is a product order (not wallet fund)
+        if (vendorClient && order.paymentMethod === "paystack" && !event.data.metadata?.type) {
+          try {
+            const product = await Package.findById(order.productId);
+            const vendorProductId = product?.vendorProductId;
+            
+            if (vendorProductId && VendorAPIClient.validatePhoneNumber(order.recipientPhone)) {
+              req.log.info(`Calling vendor API for webhook order. Product: ${order.productId}, Phone: ${order.recipientPhone}`);
+              const vendorResponse = await vendorClient.createOrder(vendorProductId, order.recipientPhone);
+              order.vendorOrderId = vendorResponse.order.id;
+              order.vendorProductId = vendorProductId;
+              // Set to processing while vendor fulfills
+              order.status = "processing";
+              req.log.info(`Vendor order created via webhook. Vendor Order ID: ${order.vendorOrderId}`);
+            } else if (!vendorProductId) {
+              req.log.warn(`Cannot call vendor API: Product ${order.productId} does not have vendorProductId`);
+              // Mark as completed if no vendor API
+              order.status = "completed";
+            }
+          } catch (vendorErr) {
+            req.log.warn({ err: vendorErr }, `Vendor API call failed for webhook order: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
+            // Still mark as completed even if vendor API fails
+            order.status = "completed";
+          }
+        } else {
+          // Mark as completed if it's a wallet fund or no vendor client
+          order.status = "completed";
+        }
+
         await order.save();
       }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetOrders, getGetOrdersQueryKey } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ShoppingBag, CheckCircle, XCircle, Clock } from "lucide-react";
@@ -25,18 +25,33 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [networkFilter, setNetworkFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [refetchInterval, setRefetchInterval] = useState<number | false>(false);
 
   const params: any = { limit: 15, page };
   if (statusFilter !== "all") params.status = statusFilter;
   if (networkFilter !== "all") params.network = networkFilter;
 
-  const { data, isLoading } = useGetOrders(params, {
+  const { data, isLoading, refetch } = useGetOrders(params, {
     query: { 
       queryKey: getGetOrdersQueryKey(params),
       retry: 3,
       retryDelay: 500,
+      refetchInterval, // Will refetch at this interval if set
+      staleTime: 10_000, // 10 seconds
     }
   });
+
+  // Enable polling if there are processing orders
+  useEffect(() => {
+    if (data?.orders) {
+      const hasProcessingOrders = data.orders.some((order: any) => order.status === "processing");
+      if (hasProcessingOrders) {
+        setRefetchInterval(3000); // Poll every 3 seconds if there are processing orders
+      } else {
+        setRefetchInterval(false); // Stop polling if no processing orders
+      }
+    }
+  }, [data?.orders]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

@@ -29,11 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           // No token, user is not authenticated
           setUser(null);
+          setLoading(false);
         }
       } catch (err) {
         console.error('Auth init error:', err);
         setUser(null);
-      } finally {
         setLoading(false);
       }
     };
@@ -44,10 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: fetchedUser, isLoading: isFetching, isError } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
-      retry: false,
+      retry: 2, // Retry twice on failure
+      retryDelay: 500, // Wait 500ms between retries
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      refetchOnReconnect: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnReconnect: true, // Refetch when connection is restored
       gcTime: 24 * 60 * 60 * 1000, // 24 hours
       enabled: !!localStorage.getItem('token'), // Only fetch if we have a token
     },

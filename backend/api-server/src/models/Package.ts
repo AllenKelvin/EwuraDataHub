@@ -9,6 +9,7 @@ const PackageSchema = new mongoose.Schema({
   userPrice: { type: Number, required: true },
   agentPrice: { type: Number, required: true },
   description: { type: String, required: true },
+  vendorProductId: { type: String }, // Mapping to vendor product ID
 }, { timestamps: true });
 
 // Index for efficient querying by network
@@ -25,6 +26,7 @@ export interface IPackage {
   userPrice: number;
   agentPrice: number;
   description: string;
+  vendorProductId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
