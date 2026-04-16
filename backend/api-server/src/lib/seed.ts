@@ -57,16 +57,20 @@ export async function seedAdminAccounts() {
           logger.info(`Admin account created: ${admin.username}`);
         }
       }),
-      // Seed packages
+      // Seed packages (only add if not exists - preserve custom prices)
       (async () => {
-        // Drop the entire collection to remove old indexes
         try {
-          await (Package.collection.drop() as any);
+          const count = await Package.countDocuments();
+          if (count === 0) {
+            // Only seed on first run, never overwrite existing packages
+            await Package.insertMany(PACKAGES);
+            logger.info(`Seeded ${PACKAGES.length} packages`);
+          } else {
+            logger.info(`Database already has ${count} packages - skipping seed (preserving custom prices)`);
+          }
         } catch (err: any) {
-          // Collection might not exist yet
+          logger.warn({ err }, "Package seeding failed - this is OK without MongoDB");
         }
-        await Package.insertMany(PACKAGES);
-        logger.info(`Seeded ${PACKAGES.length} packages`);
       })(),
     ]);
 
