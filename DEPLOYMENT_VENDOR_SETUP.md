@@ -23,7 +23,7 @@ Add these variables to your Render project settings:
 | `PAYSTACK_PUBLIC_KEY` | `pk_test_...` | Paystack test/live public |
 | `CORS_ORIGIN` | `https://ewuradatahub.com,https://www.ewuradatahub.com` | Allowed frontend domains |
 | `FRONTEND_URL` | `https://ewuradatahub.com` | Frontend URL for redirects |
-| `VENDOR_API_KEY` | `adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed` | **NEW** - AllenDataHub API key |
+| `VENDOR_API_KEY` | `adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9` | **NEW** - AllenDataHub API key |
 | `VENDOR_API_URL` | `https://api.allendatahub.com` | **NEW** - Vendor API base URL |
 | `LOG_LEVEL` | `info` | Logging level |
 
@@ -61,7 +61,7 @@ FRONTEND_URL: https://ewuradatahub.com
 LOG_LEVEL: info
 
 # NEW - Vendor API
-VENDOR_API_KEY: adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed
+VENDOR_API_KEY: adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
 VENDOR_API_URL: https://api.allendatahub.com
 ```
 
@@ -302,7 +302,7 @@ CORS_ORIGIN=https://ewuradatahub.com,https://www.ewuradatahub.com
 FRONTEND_URL=https://ewuradatahub.com
 
 # Vendor API (NEW)
-VENDOR_API_KEY=adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed
+VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
 VENDOR_API_URL=https://api.allendatahub.com
 
 # Logging
@@ -347,7 +347,7 @@ https://ewuradatahub.com
 **Cause:** `VENDOR_API_KEY` not set in Render environment
 **Fix:**
 1. Go to Render Settings → Environment Variables
-2. Add `VENDOR_API_KEY=adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed`
+2. Add `VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9`
 3. Redeploy
 
 ### "CORS error from frontend"

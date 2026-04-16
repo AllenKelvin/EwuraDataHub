@@ -10,7 +10,7 @@ PORT=10000
 JWT_EXPIRY=7d
 FRONTEND_URL=https://ewuradatahub.com
 CORS_ORIGIN=https://ewuradatahub.com,https://www.ewuradatahub.com
-VENDOR_API_KEY=adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed
+VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
 VENDOR_API_URL=https://api.allendatahub.com
 PAYSTACK_PUBLIC_KEY=pk_test_257567315f8c5a68749c585dcc0788dde5fcfa49
 PAYSTACK_SECRET_KEY=sk_test_38f6f7cbb730732e4823b61d4a243852e652d15c
@@ -51,7 +51,7 @@ Development:
 - [ ] Click Settings → Environment Variables
 - [ ] Delete old variable: `ALLOWED_ORIGINS` (if exists)
 - [ ] Add/Update these variables:
-  - `VENDOR_API_KEY` = `adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed`
+  - `VENDOR_API_KEY` = `adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9`
   - `VENDOR_API_URL` = `https://api.allendatahub.com`
   - `CORS_ORIGIN` = `https://ewuradatahub.com,https://www.ewuradatahub.com`
   - `SESSION_SECRET` = Generate new value
@@ -99,7 +99,7 @@ Development:
 ### Vendor API (NEW)
 | Variable | Value |
 |----------|-------|
-| `VENDOR_API_KEY` | `adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed` |
+| `VENDOR_API_KEY` | `adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9` |
 | `VENDOR_API_URL` | `https://api.allendatahub.com` |
 
 ### Fixed Variable Names (CHANGED)
@@ -130,7 +130,7 @@ CORS & URLs:
   FRONTEND_URL=https://ewuradatahub.com
   
 VENDOR (NEW):
-  VENDOR_API_KEY=adh_2cbe500a9365a43c416dd493ba61d541ed53dd7206045bed
+  VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
   VENDOR_API_URL=https://api.allendatahub.com
   
 LOGGING:

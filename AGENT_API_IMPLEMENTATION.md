@@ -22,7 +22,7 @@ AGENT_API_KEY=test_key_12345
 TEST_AGENT_ID=test_agent_id
 
 # Vendor API Integration
-VENDOR_API_KEY=adh_your_vendor_key
+VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
 VENDOR_API_URL=https://api.allendatahub.com
 ```
 
