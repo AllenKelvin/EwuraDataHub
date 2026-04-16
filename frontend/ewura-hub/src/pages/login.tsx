@@ -30,6 +30,10 @@ export default function Login() {
   const onSubmit = (data: FormData) => {
     loginMutation.mutate({ data }, {
       onSuccess: (res) => {
+        // Store token in localStorage for mobile persistence
+        if (res.token) {
+          localStorage.setItem('token', res.token);
+        }
         login(res.user);
         setLocation(res.user.role === "admin" ? "/admin" : "/dashboard");
       },

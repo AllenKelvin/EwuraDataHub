@@ -36,6 +36,10 @@ export default function Register() {
   const onSubmit = (data: FormData) => {
     registerMutation.mutate({ data }, {
       onSuccess: (res) => {
+        // Store token in localStorage for mobile persistence
+        if (res.token) {
+          localStorage.setItem('token', res.token);
+        }
         login(res.user);
         toast({ title: "Account created!", description: "Welcome to Ewura Hub" });
         setLocation(res.user.role === "admin" ? "/admin" : "/dashboard");

@@ -16,8 +16,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
 
-  const { data: fetchedUser, isLoading, isError } = useGetMe({
+  // Initialize auth state from localStorage and verify with backend
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Token exists, verify it with backend immediately
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        } else {
+          // No token, user is not authenticated
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Auth init error:', err);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initAuth();
+  }, [queryClient]);
+
+  const { data: fetchedUser, isLoading: isFetching, isError } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
       retry: false,
@@ -25,30 +49,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       staleTime: Infinity,
       refetchOnReconnect: false,
       gcTime: 24 * 60 * 60 * 1000, // 24 hours
+      enabled: !!localStorage.getItem('token'), // Only fetch if we have a token
     },
   });
 
+  // Update user when the backend response comes back
   useEffect(() => {
-    if (!isLoading) {
+    if (!isFetching) {
       if (isError || !fetchedUser) {
         setUser(null);
+        localStorage.removeItem('token');
       } else {
         setUser(fetchedUser);
       }
+      setLoading(false);
     }
-  }, [fetchedUser, isLoading, isError]);
+  }, [fetchedUser, isFetching, isError]);
 
   const login = (newUser: User) => {
     setUser(newUser);
+    // Token should be set by the backend login response and stored by the API client
     queryClient.setQueryData(getGetMeQueryKey(), newUser);
-    // Force refetch on mobile after login to ensure session persists
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    }, 500);
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('token');
     queryClient.setQueryData(getGetMeQueryKey(), null);
   };
 
@@ -56,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isLoading,
+        isLoading: loading,
         login,
         logout,
         isAuthenticated: !!user,
