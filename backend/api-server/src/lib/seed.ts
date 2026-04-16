@@ -8,33 +8,26 @@ const ADMIN_ACCOUNTS = [
 ];
 
 const PACKAGES = [
-  // ─── MTN Data ───
-  { name: "MTN 100MB", network: "MTN", type: "data", dataAmount: "100MB", price: 0, userPrice: 0.50, agentPrice: 0.44, description: "1 Day" },
-  { name: "MTN 500MB", network: "MTN", type: "data", dataAmount: "500MB", price: 0, userPrice: 1.80, agentPrice: 1.60, description: "3 Days" },
-  { name: "MTN 1 GB", network: "MTN", type: "data", dataAmount: "1 GB", price: 0, userPrice: 4.20, agentPrice: 3.80, description: "7 Days" },
-  { name: "MTN 2 GB", network: "MTN", type: "data", dataAmount: "2 GB", price: 0, userPrice: 7.50, agentPrice: 6.75, description: "14 Days" },
-  { name: "MTN 3 GB", network: "MTN", type: "data", dataAmount: "3 GB", price: 0, userPrice: 10.00, agentPrice: 9.00, description: "30 Days" },
-  { name: "MTN 5 GB", network: "MTN", type: "data", dataAmount: "5 GB", price: 0, userPrice: 16.00, agentPrice: 14.40, description: "30 Days" },
-  { name: "MTN 10 GB", network: "MTN", type: "data", dataAmount: "10 GB", price: 0, userPrice: 30.00, agentPrice: 27.00, description: "30 Days" },
-  { name: "MTN 20 GB", network: "MTN", type: "data", dataAmount: "20 GB", price: 0, userPrice: 55.00, agentPrice: 49.50, description: "30 Days" },
+  // ─── MTN Data Bundles ───
+  { name: "MTN 1GB", network: "MTN", type: "data", dataAmount: "1GB", price: 0, userPrice: 5.00, agentPrice: 4.50, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
+  { name: "MTN 2GB", network: "MTN", type: "data", dataAmount: "2GB", price: 0, userPrice: 9.00, agentPrice: 8.10, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
+  { name: "MTN 3GB", network: "MTN", type: "data", dataAmount: "3GB", price: 0, userPrice: 13.00, agentPrice: 11.70, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
+  { name: "MTN 5GB", network: "MTN", type: "data", dataAmount: "5GB", price: 0, userPrice: 21.00, agentPrice: 18.90, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
+  { name: "MTN 10GB", network: "MTN", type: "data", dataAmount: "10GB", price: 0, userPrice: 39.99, agentPrice: 35.99, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
 
-  // ─── Telecel Data ───
-  { name: "Telecel 100MB", network: "Telecel", type: "data", dataAmount: "100MB", price: 0, userPrice: 0.50, agentPrice: 0.44, description: "1 Day" },
-  { name: "Telecel 500MB", network: "Telecel", type: "data", dataAmount: "500MB", price: 0, userPrice: 1.80, agentPrice: 1.60, description: "3 Days" },
-  { name: "Telecel 1 GB", network: "Telecel", type: "data", dataAmount: "1 GB", price: 0, userPrice: 4.00, agentPrice: 3.60, description: "7 Days" },
-  { name: "Telecel 2 GB", network: "Telecel", type: "data", dataAmount: "2 GB", price: 0, userPrice: 7.00, agentPrice: 6.30, description: "14 Days" },
-  { name: "Telecel 3 GB", network: "Telecel", type: "data", dataAmount: "3 GB", price: 0, userPrice: 9.50, agentPrice: 8.55, description: "30 Days" },
-  { name: "Telecel 5 GB", network: "Telecel", type: "data", dataAmount: "5 GB", price: 0, userPrice: 15.00, agentPrice: 13.50, description: "30 Days" },
-  { name: "Telecel 10 GB", network: "Telecel", type: "data", dataAmount: "10 GB", price: 0, userPrice: 28.00, agentPrice: 25.20, description: "30 Days" },
+  // ─── Telecel Data Bundles ───
+  { name: "Telecel 1GB", network: "Telecel", type: "data", dataAmount: "1GB", price: 0, userPrice: 4.99, agentPrice: 4.49, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
+  { name: "Telecel 2GB", network: "Telecel", type: "data", dataAmount: "2GB", price: 0, userPrice: 8.99, agentPrice: 8.09, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
+  { name: "Telecel 3GB", network: "Telecel", type: "data", dataAmount: "3GB", price: 0, userPrice: 12.99, agentPrice: 11.69, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
+  { name: "Telecel 5GB", network: "Telecel", type: "data", dataAmount: "5GB", price: 0, userPrice: 20.99, agentPrice: 18.89, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
+  { name: "Telecel 10GB", network: "Telecel", type: "data", dataAmount: "10GB", price: 0, userPrice: 39.99, agentPrice: 35.99, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
 
-  // ─── AirtelTigo Data ───
-  { name: "AirtelTigo 100MB", network: "AirtelTigo", type: "data", dataAmount: "100MB", price: 0, userPrice: 0.50, agentPrice: 0.44, description: "1 Day" },
-  { name: "AirtelTigo 500MB", network: "AirtelTigo", type: "data", dataAmount: "500MB", price: 0, userPrice: 1.80, agentPrice: 1.60, description: "3 Days" },
-  { name: "AirtelTigo 1 GB", network: "AirtelTigo", type: "data", dataAmount: "1 GB", price: 0, userPrice: 4.50, agentPrice: 4.05, description: "7 Days" },
-  { name: "AirtelTigo 2 GB", network: "AirtelTigo", type: "data", dataAmount: "2 GB", price: 0, userPrice: 8.00, agentPrice: 7.20, description: "14 Days" },
-  { name: "AirtelTigo 3 GB", network: "AirtelTigo", type: "data", dataAmount: "3 GB", price: 0, userPrice: 11.00, agentPrice: 9.90, description: "30 Days" },
-  { name: "AirtelTigo 5 GB", network: "AirtelTigo", type: "data", dataAmount: "5 GB", price: 0, userPrice: 17.00, agentPrice: 15.30, description: "30 Days" },
-  { name: "AirtelTigo 10 GB", network: "AirtelTigo", type: "data", dataAmount: "10 GB", price: 0, userPrice: 32.00, agentPrice: 28.80, description: "30 Days" },
+  // ─── AirtelTigo Data Bundles ───
+  { name: "AirtelTigo 1GB", network: "AirtelTigo", type: "data", dataAmount: "1GB", price: 0, userPrice: 6.00, agentPrice: 5.50, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
+  { name: "AirtelTigo 2GB", network: "AirtelTigo", type: "data", dataAmount: "2GB", price: 0, userPrice: 10.99, agentPrice: 9.89, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
+  { name: "AirtelTigo 3GB", network: "AirtelTigo", type: "data", dataAmount: "3GB", price: 0, userPrice: 15.99, agentPrice: 14.39, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
+  { name: "AirtelTigo 5GB", network: "AirtelTigo", type: "data", dataAmount: "5GB", price: 0, userPrice: 24.99, agentPrice: 22.49, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
+  { name: "AirtelTigo 10GB", network: "AirtelTigo", type: "data", dataAmount: "10GB", price: 0, userPrice: 45.99, agentPrice: 41.39, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
 ];
 
 export async function seedAdminAccounts() {
@@ -67,6 +60,9 @@ export async function seedAdminAccounts() {
             logger.info(`Seeded ${PACKAGES.length} packages`);
           } else {
             logger.info(`Database already has ${count} packages - skipping seed (preserving custom prices)`);
+            
+            // But do add vendorProductId to existing packages if missing
+            await updatePackageVendorIds();
           }
         } catch (err: any) {
           logger.warn({ err }, "Package seeding failed - this is OK without MongoDB");
@@ -82,5 +78,43 @@ export async function seedAdminAccounts() {
     ]);
   } catch (err) {
     logger.warn({ err }, "Admin seeding skipped or timed out - this is OK without MongoDB");
+  }
+}
+
+/**
+ * Add vendorProductId to existing packages that don't have it
+ */
+async function updatePackageVendorIds() {
+  const vendorMappings: Record<string, string> = {
+    "MTN 1GB": "master_beneficiary_data_bundle",
+    "MTN 2GB": "master_beneficiary_data_bundle",
+    "MTN 3GB": "master_beneficiary_data_bundle",
+    "MTN 5GB": "master_beneficiary_data_bundle",
+    "MTN 10GB": "master_beneficiary_data_bundle",
+    "Telecel 1GB": "telecel_expiry_bundle",
+    "Telecel 2GB": "telecel_expiry_bundle",
+    "Telecel 3GB": "telecel_expiry_bundle",
+    "Telecel 5GB": "telecel_expiry_bundle",
+    "Telecel 10GB": "telecel_expiry_bundle",
+    "AirtelTigo 1GB": "ishare_data_bundle",
+    "AirtelTigo 2GB": "ishare_data_bundle",
+    "AirtelTigo 3GB": "ishare_data_bundle",
+    "AirtelTigo 5GB": "ishare_data_bundle",
+    "AirtelTigo 10GB": "ishare_data_bundle",
+  };
+
+  let updated = 0;
+  for (const [packageName, vendorId] of Object.entries(vendorMappings)) {
+    const result = await Package.updateOne(
+      { name: packageName, vendorProductId: { $exists: false } },
+      { $set: { vendorProductId: vendorId } }
+    );
+    if (result.modifiedCount > 0) {
+      updated++;
+    }
+  }
+
+  if (updated > 0) {
+    logger.info(`✓ Added vendorProductId to ${updated} packages`);
   }
 }

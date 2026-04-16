@@ -77,29 +77,20 @@ export default function Cart() {
     createOrderMutation.mutate(
       { data: { productId: item.productId, recipientPhone: item.recipientPhone, paymentMethod } },
       {
-        onMutate: async (variables) => {
-          // Cancel any outgoing refetches to avoid overwriting optimistic update
-          await queryClient.cancelQueries({ queryKey: getGetOrdersQueryKey({ limit: 20, page: 1 }) });
-          
-          // Snapshot the previous value
-          const previousOrders = queryClient.getQueryData(getGetOrdersQueryKey({ limit: 20, page: 1 }));
-          
-          // For wallet payment, also optimistically update wallet
-          let previousWallet = null;
-          if (isAgent && paymentMethod === "wallet") {
-            await queryClient.cancelQueries({ queryKey: getGetWalletQueryKey() });
-            previousWallet = queryClient.getQueryData(getGetWalletQueryKey());
-          }
-
-          return { previousOrders, previousWallet };
-        },
         onSuccess: (res) => {
           console.log('Order created successfully:', res);
           
-          // Invalidate queries to fetch fresh data from DB
-          queryClient.invalidateQueries({ queryKey: getGetOrdersQueryKey({ limit: 20, page: 1 }) });
-          if (isAgent) {
-            queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
+          // Invalidate ALL order queries regardless of pagination
+          // Query key format: ["/api/orders", { limit: X, page: Y }]
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/orders"] 
+          });
+          
+          if (isAgent && paymentMethod === "wallet") {
+            // Query key format: ["/api/wallet"] - no params
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/wallet"]
+            });
           }
           
           if (res.paymentUrl) {
@@ -121,17 +112,8 @@ export default function Cart() {
             navigate("/dashboard");
           }
         },
-        onError: (err: any, variables, context) => {
+        onError: (err: any) => {
           console.error('Order creation error:', err);
-          
-          // Restore previous data on error
-          if (context?.previousOrders) {
-            queryClient.setQueryData(getGetOrdersQueryKey({ limit: 20, page: 1 }), context.previousOrders);
-          }
-          if (context?.previousWallet) {
-            queryClient.setQueryData(getGetWalletQueryKey(), context.previousWallet);
-          }
-          
           let errorMsg = "Failed to place order";
           
           // Handle authentication errors
