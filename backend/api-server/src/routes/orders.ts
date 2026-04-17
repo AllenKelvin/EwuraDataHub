@@ -88,7 +88,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       let vendorError: string | undefined;
 
       // Call vendor API if configured and product has vendor ID
-      if (vendorClient && vendorProductId && VendorAPIClient.validatePhoneNumber(recipientPhone).valid) {
+      if (vendorClient && vendorProductId && VendorAPIClient.validatePhoneNumber(recipientPhone)) {
         try {
           // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
           const formattedPhone = VendorAPIClient.formatPhoneNumber(recipientPhone);
@@ -107,7 +107,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         }
       } else if (vendorClient && !vendorProductId) {
         req.log.warn(`Vendor API available but product ${productId} does not have vendorProductId - proceeding without vendor integration`);
-      } else if (vendorClient && !VendorAPIClient.validatePhoneNumber(recipientPhone).valid) {
+      } else if (vendorClient && !VendorAPIClient.validatePhoneNumber(recipientPhone)) {
         req.log.warn(`Invalid phone number for vendor API: ${recipientPhone} - proceeding with local order only`);
       }
 
