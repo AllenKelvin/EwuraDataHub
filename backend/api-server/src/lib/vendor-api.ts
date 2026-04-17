@@ -71,7 +71,7 @@ class VendorAPIClient {
 
   constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.VENDOR_API_KEY || "";
-    this.baseUrl = baseUrl || "https://api.allendatahub.com";
+    this.baseUrl = baseUrl || "https://allendatahub.com";
 
     if (!this.apiKey) {
       console.error("❌ VENDOR_API_KEY environment variable is not set!");

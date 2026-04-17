@@ -88,21 +88,33 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       let vendorError: string | undefined;
 
       // Call vendor API if configured and product has vendor ID
-      if (vendorClient && vendorProductId && VendorAPIClient.validatePhoneNumber(recipientPhone)) {
-        try {
-          // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
-          const formattedPhone = VendorAPIClient.formatPhoneNumber(recipientPhone);
-          req.log.info(`Calling vendor API for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
-          const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
-          vendorOrderId = vendorResponse.order.id;
-          req.log.info(`Vendor order created successfully. Vendor Order ID: ${vendorOrderId}`);
-        } catch (vendorErr) {
-          vendorError = vendorErr instanceof Error ? vendorErr.message : "Vendor API error";
-          req.log.warn({ err: vendorErr }, `Vendor API call failed: ${vendorError}`);
-          // Continue with order creation even if vendor API fails
-        }
-      } else if (vendorClient && !vendorProductId) {
-        req.log.warn(`Cannot call vendor API: Product ${productId} does not have vendorProductId`);
+      if (!vendorClient) {
+        return res.status(500).json({ error: "Vendor API client not initialized. Cannot process wallet payment." });
+      }
+
+      if (!vendorProductId) {
+        return res.status(400).json({ error: `Product ${productId} does not have a vendor product ID. Wallet payment cannot be processed.` });
+      }
+
+      if (!VendorAPIClient.validatePhoneNumber(recipientPhone).valid) {
+        return res.status(400).json({ error: `Invalid phone number format: ${recipientPhone}. Please provide a valid 10-digit phone number.` });
+      }
+
+      try {
+        // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
+        const formattedPhone = VendorAPIClient.formatPhoneNumber(recipientPhone);
+        req.log.info(`Calling vendor API for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+        const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
+        vendorOrderId = vendorResponse.order.id;
+        req.log.info(`✅ Vendor order created successfully. Vendor Order ID: ${vendorOrderId}`);
+      } catch (vendorErr) {
+        vendorError = vendorErr instanceof Error ? vendorErr.message : "Vendor API error";
+        req.log.error({ err: vendorErr }, `❌ CRITICAL: Vendor API call failed for wallet payment: ${vendorError}`);
+        // Reject wallet payment if vendor API fails - this is a critical operation
+        return res.status(502).json({ 
+          error: `Vendor API communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+          vendorError
+        });
       }
 
       const order = new Order({
