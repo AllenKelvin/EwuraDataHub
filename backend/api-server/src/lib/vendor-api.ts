@@ -117,7 +117,26 @@ class VendorAPIClient {
       });
 
       const duration = Date.now() - startTime;
-      const responseBody = await response.json() as any;
+      
+      // Handle empty responses (no body)
+      const text = await response.text();
+      let responseBody: any;
+      
+      if (!text) {
+        // Empty response - use empty object for ok responses, error for non-ok
+        responseBody = response.ok ? {} : { error: "Empty response body" };
+      } else {
+        try {
+          responseBody = JSON.parse(text);
+        } catch (parseErr) {
+          // Response is not JSON - could be HTML error page or plain text
+          console.warn(`Response is not valid JSON, treating as error text`);
+          responseBody = { 
+            error: text.substring(0, 200), // First 200 chars of response
+            rawResponse: text 
+          };
+        }
+      }
 
       if (!response.ok) {
         console.error(`
