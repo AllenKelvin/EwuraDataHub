@@ -32,32 +32,30 @@ router.post("/register", async (req: Request, res: Response) => {
     await user.save();
 
     req.session.userId = user._id.toString();
-
-    // Explicitly save session before sending response
-    return new Promise((resolve) => {
-      req.session.save((err) => {
-        if (err) {
-          req.log.error({ err }, "Session save error during register");
-          return res.status(500).json({ error: "Session save failed" });
-        }
-        
-        // Generate JWT token for mobile support
-        const token = generateToken(user);
-        
-        return res.status(201).json({
-          user: {
-            id: user._id.toString(),
-            username: user.username,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            isVerified: user.isVerified,
-            walletBalance: user.walletBalance,
-            createdAt: user.createdAt,
-          },
-          token,
-          message: "Account created successfully",
-        });
+    
+    // Save session and send response
+    req.session.save((err) => {
+      if (err) {
+        req.log.error({ err }, "Session save error during register");
+        return res.status(500).json({ error: "Session save failed" });
+      }
+      
+      // Generate JWT token for mobile support
+      const token = generateToken(user);
+      
+      return res.status(201).json({
+        user: {
+          id: user._id.toString(),
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          isVerified: user.isVerified,
+          walletBalance: user.walletBalance,
+          createdAt: user.createdAt,
+        },
+        token,
+        message: "Account created successfully",
       });
     });
   } catch (err) {
@@ -88,31 +86,29 @@ router.post("/login", async (req: Request, res: Response) => {
 
     req.session.userId = user._id.toString();
     
-    // Explicitly save session before sending response
-    return new Promise((resolve) => {
-      req.session.save((err) => {
-        if (err) {
-          req.log.error({ err }, "Session save error during login");
-          return res.status(500).json({ error: "Session save failed" });
-        }
-        
-        // Generate JWT token for mobile support
-        const token = generateToken(user);
-        
-        return res.status(200).json({
-          user: {
-            id: user._id.toString(),
-            username: user.username,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            isVerified: user.isVerified,
-            walletBalance: user.walletBalance,
-            createdAt: user.createdAt,
-          },
-          token,
-          message: "Login successful",
-        });
+    // Save session and send response
+    req.session.save((err) => {
+      if (err) {
+        req.log.error({ err }, "Session save error during login");
+        return res.status(500).json({ error: "Session save failed" });
+      }
+      
+      // Generate JWT token for mobile support
+      const token = generateToken(user);
+      
+      return res.status(200).json({
+        user: {
+          id: user._id.toString(),
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          isVerified: user.isVerified,
+          walletBalance: user.walletBalance,
+          createdAt: user.createdAt,
+        },
+        token,
+        message: "Login successful",
       });
     });
   } catch (err) {

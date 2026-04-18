@@ -156,4 +156,23 @@ app.use("/api", router);
 // Agent API v2.0 routes
 app.use("/agent-api", agentApiRouter);
 
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+// Global error handler - must be last
+app.use((err: any, req: Express.Request, res: Express.Response, _next: Function) => {
+  logger.error({ err, path: req.path, method: req.method }, "Request error");
+  
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal server error";
+  
+  // CORS headers will be added by the cors middleware above this point
+  res.status(status).json({
+    error: message,
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+});
+
 export default app;
