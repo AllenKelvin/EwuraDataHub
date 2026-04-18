@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && cd frontend/ewura-hub && pnpm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm ci",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "framework": "vite",
   "rewrites": [
     {
