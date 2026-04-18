@@ -44,24 +44,29 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // CORS Configuration - Production safe
-const allowedOrigins = process.env.CORS_ORIGIN?.split(",") || [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:5175",
-];
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",").map(o => o.trim());
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.some(allowed => origin.includes(allowed))) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Otherwise reject
+    callback(new Error(`CORS not allowed from origin: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+  exposedHeaders: ["Content-Length"],
   maxAge: 86400, // 24 hours
+  preflightContinue: false,
 }));
 
 // Security Headers
