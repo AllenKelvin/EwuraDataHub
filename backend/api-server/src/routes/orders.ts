@@ -4,21 +4,10 @@ import { User } from "../models/User";
 import { Package } from "../models/Package";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { requireAuth } from "../lib/auth-middleware";
-import VendorAPIClient from "../lib/vendor-api";
+import portal02Service from "../lib/portal02";
+import { formatPhoneNumber, validatePhoneNumber } from "../lib/phone-utils";
 
 const router = Router();
-
-// Initialize vendor API client
-let vendorClient: VendorAPIClient | null = null;
-try {
-  vendorClient = new VendorAPIClient(
-    process.env.VENDOR_API_KEY,
-    process.env.VENDOR_API_URL
-  );
-} catch (err) {
-  console.warn("⚠ Vendor API client initialization failed in orders route");
-  vendorClient = null;
-}
 
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -88,27 +77,40 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       let vendorError: string | undefined;
 
       // Call vendor API if configured and product has vendor ID
-      if (vendorClient && vendorProductId && VendorAPIClient.validatePhoneNumber(recipientPhone)) {
+      if (vendorProductId && validatePhoneNumber(recipientPhone)) {
         try {
-          // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
-          const formattedPhone = VendorAPIClient.formatPhoneNumber(recipientPhone);
-          req.log.info(`Calling vendor API for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
-          const vendorResponse = await vendorClient.createOrder(vendorProductId, formattedPhone);
-          vendorOrderId = vendorResponse.order.id;
-          req.log.info(`✅ Vendor order created successfully. Vendor Order ID: ${vendorOrderId}`);
+          // Format phone number for vendor API
+          const formattedPhone = formatPhoneNumber(recipientPhone);
+          req.log.info(`Calling Portal-02 for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+          
+          // Extract network from product
+          const result = await portal02Service.purchaseDataBundle(
+            formattedPhone,
+            product.dataAmount,
+            product.network
+          );
+          
+          if (result.success) {
+            vendorOrderId = result.transactionId;
+            req.log.info(`✅ Portal-02 order created successfully. Order ID: ${vendorOrderId}`);
+          } else {
+            vendorError = result.error;
+            req.log.error(`❌ Portal-02 API failed: ${vendorError}`);
+            return res.status(502).json({ 
+              error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+              vendorError
+            });
+          }
         } catch (vendorErr) {
-          vendorError = vendorErr instanceof Error ? vendorErr.message : "Vendor API error";
-          req.log.error({ err: vendorErr }, `❌ CRITICAL: Vendor API call failed for wallet payment: ${vendorError}`);
-          // Reject wallet payment if vendor API call fails - this prevents ghost success
+          vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
+          req.log.error({ err: vendorErr }, `❌ CRITICAL: Portal-02 API call failed: ${vendorError}`);
           return res.status(502).json({ 
-            error: `Vendor API communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+            error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
             vendorError
           });
         }
-      } else if (vendorClient && !vendorProductId) {
-        req.log.warn(`Vendor API available but product ${productId} does not have vendorProductId - proceeding without vendor integration`);
-      } else if (vendorClient && !VendorAPIClient.validatePhoneNumber(recipientPhone)) {
-        req.log.warn(`Invalid phone number for vendor API: ${recipientPhone} - proceeding with local order only`);
+      } else if (vendorProductId && !validatePhoneNumber(recipientPhone)) {
+        req.log.warn(`Invalid phone number for Portal-02: ${recipientPhone} - proceeding with local order only`);
       }
 
       const order = new Order({

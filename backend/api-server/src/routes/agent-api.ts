@@ -9,7 +9,7 @@ import { Order } from "../models/Order";
 import { User } from "../models/User";
 import { Package } from "../models/Package";
 import { requireAuth } from "../lib/auth-middleware";
-import VendorAPIClient from "../lib/vendor-api";
+import { normalizePhoneNumber } from "../lib/phone-utils";
 import { z } from "zod";
 
 const router = Router();
@@ -137,8 +137,8 @@ router.post("/orders/create", async (req: Request, res: Response) => {
     console.log(`[${requestId}] Product: ${productId}, Phone: ${phoneNumber}, Qty: ${quantity}`);
 
     // Validate phone number format
-    const phoneValidation = VendorAPIClient.normalizePhoneNumber(phoneNumber);
-    if (!phoneValidation.valid) {
+    const phoneValidation = normalizePhoneNumber(phoneNumber);
+    if (!phoneValidation.success) {
       return sendError(
         res,
         "INVALID_PHONE",
@@ -147,7 +147,7 @@ router.post("/orders/create", async (req: Request, res: Response) => {
       );
     }
 
-    const normalizedPhone = phoneValidation.normalized!;
+    const normalizedPhone = phoneValidation.formatted!;
     console.log(`[${requestId}] Phone normalized: ${phoneNumber} → ${normalizedPhone}`);
 
     // Validate product ID format (MongoDB ObjectId)
@@ -210,24 +210,30 @@ router.post("/orders/create", async (req: Request, res: Response) => {
       );
     }
 
-    // Initialize vendor API client
+    // Initialize vendor order fields
     let vendorOrderId: string | undefined;
     let vendorError: string | undefined;
 
-    const vendorClient = new VendorAPIClient(
-      process.env.VENDOR_API_KEY,
-      process.env.VENDOR_API_URL
-    );
-
     if (product.vendorProductId) {
       try {
-        console.log(`[${requestId}] Calling vendor API...`);
-        const vendorResponse = await vendorClient.createOrder(
-          product.vendorProductId,
-          normalizedPhone
+        console.log(`[${requestId}] Calling Portal-02 API...`);
+        
+        // Import portal02Service here to avoid circular imports
+        const portal02Service = (await import("../lib/portal02")).default;
+        
+        const result = await portal02Service.purchaseDataBundle(
+          normalizedPhone,
+          product.dataAmount,
+          product.network
         );
-        vendorOrderId = vendorResponse.order.id;
-        console.log(`[${requestId}] Vendor order created: ${vendorOrderId}`);
+        
+        if (result.success) {
+          vendorOrderId = result.transactionId;
+          console.log(`[${requestId}] Portal-02 order created: ${vendorOrderId}`);
+        } else {
+          vendorError = result.error;
+          console.log(`[${requestId}] Portal-02 order failed: ${vendorError}`);
+        }
       } catch (err) {
         vendorError = err instanceof Error ? err.message : "Vendor API error";
         console.warn(`[${requestId}] Vendor API failed: ${vendorError}`);

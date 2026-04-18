@@ -3,8 +3,8 @@ import { Package } from "../models/Package";
 import { logger } from "./logger";
 
 const ADMIN_ACCOUNTS = [
-  { username: "@Admin001", email: "admin001@ewurahub.com", phone: "0200000001", password: "Password100'", role: "admin" as const },
-  { username: "@Admin002", email: "admin002@ewurahub.com", phone: "0200000002", password: "Password200", role: "admin" as const },
+  { username: "@Admin001", email: "admin001@allendatahub.com", phone: "0200000001", password: "Password100'", role: "admin" as const },
+  { username: "@Admin002", email: "admin002@allendatahub.com", phone: "0200000002", password: "Password200", role: "admin" as const },
 ];
 
 const PACKAGES = [

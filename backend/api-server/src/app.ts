@@ -80,9 +80,9 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-const sessionSecret = process.env.SESSION_SECRET || "ewura-hub-dev-secret-change-in-prod";
+const sessionSecret = process.env.SESSION_SECRET || "allendatahub-super-secret-jwt-key-2024-for-ghana";
 
-if (process.env.NODE_ENV === "production" && sessionSecret === "ewura-hub-dev-secret-change-in-prod") {
+if (process.env.NODE_ENV === "production" && sessionSecret === "allendatahub-super-secret-jwt-key-2024-for-ghana") {
   logger.warn("⚠️  WARNING: Using default SESSION_SECRET in production! Please set SESSION_SECRET environment variable.");
 }
 
@@ -91,7 +91,7 @@ let sessionStore: any;
 if (process.env.MONGODB_URI) {
   sessionStore = new MongoStore({
     mongoUrl: process.env.MONGODB_URI,
-    dbName: process.env.MONGODB_DB || "ewura-hub",
+    dbName: process.env.MONGODB_DB || "allen-datahub",
     collection: "sessions",
     touchAfter: 24 * 3600, // Lazy session update (touch every 24 hours)
     connectionOptions: {
@@ -119,7 +119,7 @@ app.use(session({
 // Root route - API info
 app.get("/", (_req, res) => {
   res.json({
-    name: "Ewura Hub API",
+    name: "Allen DataHub API",
     status: "running",
     version: "1.0.0",
     environment: process.env.NODE_ENV,

@@ -4,18 +4,18 @@ services:
   # MongoDB Database
   mongodb:
     image: mongo:latest
-    container_name: ewura-mongodb
+    container_name: allen-datahub-mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
-      MONGO_INITDB_DATABASE: ewura-hub
+      MONGO_INITDB_DATABASE: allen-datahub
     volumes:
       - mongodb_data:/data/db
       - mongodb_configdb:/data/configdb
     ports:
       - "27017:27017"
     networks:
-      - ewura-network
+      - allen-datahub-network
     restart: unless-stopped
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
@@ -33,7 +33,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: ewura-api
+    container_name: allen-datahub-api
     depends_on:
       mongodb:
         condition: service_healthy
@@ -41,7 +41,7 @@ services:
       NODE_ENV: production
       PORT: 8080
       LOG_LEVEL: info
-      MONGODB_URI: mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-changeme}@mongodb:27017/ewura-hub?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-changeme}@mongodb:27017/allen-datahub?authSource=admin
       SESSION_SECRET: ${SESSION_SECRET}
       PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY}
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY}
@@ -50,7 +50,7 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - ewura-network
+      - allen-datahub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
@@ -63,7 +63,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "app=ewura-api"
+        labels: "app=allen-datahub-api"
 
   # Frontend Web Application
   web:
@@ -74,14 +74,14 @@ services:
         PORT: 80
         BASE_PATH: /
         VITE_API_URL: ${VITE_API_URL}
-    container_name: ewura-web
+    container_name: allen-datahub-web
     environment:
       NODE_ENV: production
       PORT: 80
     depends_on:
       - api
     networks:
-      - ewura-network
+      - allen-datahub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
@@ -98,7 +98,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: ewura-nginx
+    container_name: allen-datahub-nginx
     depends_on:
       - api
       - web
@@ -112,7 +112,7 @@ services:
       - ./certbot/www:/var/www/certbot:ro
       - nginx_logs:/var/log/nginx
     networks:
-      - ewura-network
+      - allen-datahub-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
@@ -128,14 +128,14 @@ services:
   # Optional: Certbot for SSL Certificate Management
   certbot:
     image: certbot/certbot
-    container_name: ewura-certbot
+    container_name: allen-datahub-certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot -q; sleep 12h & wait $${!}; done;'
     restart: unless-stopped
     networks:
-      - ewura-network
+      - allen-datahub-network
 
   # Optional: Redis for Caching (commented out by default)
   # redis:
@@ -163,5 +163,5 @@ volumes:
   #   driver: local
 
 networks:
-  ewura-network:
+  allen-datahub-network:
     driver: bridge

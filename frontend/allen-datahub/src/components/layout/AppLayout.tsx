@@ -73,7 +73,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
             <span className="text-white font-black text-base">E</span>
           </div>
           <div>
-            <p className="font-bold text-sidebar-foreground text-base leading-tight">Ewura Hub</p>
+            <p className="font-bold text-sidebar-foreground text-base leading-tight">Allen DataHub</p>
             <p className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest">Data Reseller</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="w-6 h-6 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-white font-black text-xs">E</span>
             </div>
-            <span className="font-bold text-sm text-foreground">Ewura Hub</span>
+            <span className="font-bold text-sm text-foreground">Allen DataHub</span>
           </div>
           <div className="hidden md:block" />
 

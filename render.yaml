@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ewura-hub-api
+    name: allen-data-hub-api
     runtime: node
     plan: standard
     buildCommand: cd backend/api-server && pnpm install && pnpm build
@@ -14,7 +14,7 @@ services:
         value: 10000
       - key: MONGODB_URI
         fromDatabase:
-          name: ewura-hub-db
+          name: allen-datahub-db
           property: connectionString
       - key: SESSION_SECRET
         generateValue: true
@@ -32,11 +32,12 @@ services:
         scope: all
       - key: PAYSTACK_SECRET_KEY
         scope: all
-      # Vendor API (AllenDataHub Integration)
-      - key: VENDOR_API_KEY
+      - key: PORTAL02_API_KEY
         scope: all
-      - key: VENDOR_API_URL
-        value: https://api.allendatahub.com
+      - key: PORTAL02_BASE_URL
+        value: https://www.portal-02.com/api/v1
+      - key: BREVO_API_KEY
+        scope: all
 
 databases:
   - name: ewura-hub-db

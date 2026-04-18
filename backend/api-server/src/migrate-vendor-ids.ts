@@ -35,7 +35,7 @@ const VENDOR_MAPPINGS: Record<string, string> = {
 async function migrate() {
   try {
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/ewura-hub";
+    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/allen-datahub";
     await mongoose.connect(mongoUri);
     logger.info("Connected to MongoDB");
 

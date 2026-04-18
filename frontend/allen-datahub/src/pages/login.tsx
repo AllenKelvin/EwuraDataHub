@@ -62,7 +62,7 @@ export default function Login() {
               <span className="text-white font-black text-xl">E</span>
             </div>
             <div>
-              <p className="text-white font-bold text-xl leading-tight">Ewura Hub</p>
+              <p className="text-white font-bold text-xl leading-tight">Allen DataHub</p>
               <p className="text-white/40 text-xs">Premium Data Services</p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function Login() {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
             <span className="text-white font-black text-lg">E</span>
           </div>
-          <span className="font-bold text-xl text-foreground">Ewura Hub</span>
+          <span className="font-bold text-xl text-foreground">Allen DataHub</span>
         </div>
 
         <div className="w-full max-w-sm">

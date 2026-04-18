@@ -1,151 +1,111 @@
 import { Router, type Request, type Response } from "express";
-import VendorAPIClient, { VendorProduct } from "../lib/vendor-api";
+import portal02Service from "../lib/portal02";
 import { Order } from "../models/Order";
 import { requireAuth } from "../lib/auth-middleware";
 
 const router = Router();
 
-// Initialize vendor API client
-let vendorClient: VendorAPIClient | null = null;
-
-try {
-  vendorClient = new VendorAPIClient(
-    process.env.VENDOR_API_KEY,
-    process.env.VENDOR_API_URL
-  );
-  console.log("✓ Vendor API client initialized successfully");
-} catch (err) {
-  console.warn("⚠ Vendor API client initialization failed:", err instanceof Error ? err.message : String(err));
-  vendorClient = null;
-}
-
 /**
- * GET /api/vendor/products
- * Get all available vendor products
+ * POST /api/vendor/purchase
+ * Purchase a data bundle from Portal-02
  */
-router.get("/products", async (req: Request, res: Response) => {
+router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
   try {
-    if (!vendorClient) {
-      return res.status(503).json({ error: "Vendor service not configured" });
-    }
-
-    const products = await vendorClient.getProducts();
-    return res.json({ products });
-  } catch (err) {
-    req.log.error({ err }, "Get vendor products error");
-    return res.status(500).json({
-      error: err instanceof Error ? err.message : "Failed to fetch vendor products",
-    });
-  }
-});
-
-/**
- * POST /api/vendor/orders
- * Create an order directly with vendor (auto-purchase with wallet)
- */
-router.post("/orders", requireAuth, async (req: Request, res: Response) => {
-  try {
-    if (!vendorClient) {
-      return res.status(503).json({ error: "Vendor service not configured" });
-    }
-
     const user = (req as any).user;
-    const { phonenumber, vendorProductId } = req.body;
+    const { phoneNumber, bundleSize, network } = req.body;
 
-    if (!phonenumber || !vendorProductId) {
+    if (!phoneNumber || !bundleSize || !network) {
       return res.status(400).json({
-        error: "Missing required fields: phonenumber, vendorProductId",
+        error: "Missing required fields: phoneNumber, bundleSize, network",
       });
     }
 
-    // Validate phone number
-    if (!VendorAPIClient.validatePhoneNumber(phonenumber)) {
-      return res.status(400).json({ error: "Invalid phone number format" });
-    }
+    // Create order with Portal-02
+    const result = await portal02Service.purchaseDataBundle(
+      phoneNumber,
+      bundleSize,
+      network,
+      user._id.toString()
+    );
 
-    try {
-      // Format phone number to 10 digits (0XXXXXXXXX) as required by vendor API
-      const formattedPhone = VendorAPIClient.formatPhoneNumber(phonenumber);
-      
-      // Create order with vendor
-      const vendorResponse = await vendorClient.createOrder(
-        vendorProductId,
-        formattedPhone
-      );
-
-      const vendorOrder = vendorResponse.order;
-
-      // Create corresponding order in our system
-      const order = new Order({
-        userId: user._id,
-        username: user.username,
-        vendorOrderId: vendorOrder.id,
-        vendorProductId,
-        vendorPhoneNumber: phonenumber,
-        network: vendorOrder.productNetwork,
-        type: "data", // Assuming data bundles
-        productName: vendorOrder.productName,
-        recipientPhone: phonenumber,
-        amount: vendorOrder.price,
-        status: "pending",
-        paymentMethod: "vendor_wallet",
-        paymentReference: vendorOrder.id,
-        vendorStatus: vendorOrder.status,
-      });
-
-      await order.save();
-      req.log.info(
-        `Vendor order created. Order ID: ${order._id}, Vendor ID: ${vendorOrder.id}`
-      );
-
-      return res.status(201).json({
-        order: {
-          id: order._id.toString(),
-          vendorOrderId: vendorOrder.id,
-          status: order.status,
-          vendorStatus: vendorOrder.status,
-          amount: vendorOrder.price,
-          productName: vendorOrder.productName,
-          walletBalanceBefore: vendorOrder.walletBalanceBefore,
-          walletBalanceAfter: vendorOrder.walletBalanceAfter,
-          createdAt: order.createdAt,
-        },
-      });
-    } catch (vendorErr) {
-      req.log.error({ err: vendorErr }, "Vendor order creation failed");
+    if (!result.success) {
       return res.status(400).json({
-        error: vendorErr instanceof Error ? vendorErr.message : "Vendor order failed",
+        error: result.error,
+        platform: result.platform,
+        details: result.details,
       });
     }
+
+    // Create corresponding order in our system
+    const order = new Order({
+      userId: user._id,
+      username: user.username,
+      vendorOrderId: result.transactionId,
+      vendorProductId: `${network}_${bundleSize}`,
+      vendorPhoneNumber: phoneNumber,
+      network,
+      type: "data",
+      productName: `${network} ${bundleSize}GB`,
+      recipientPhone: phoneNumber,
+      amount: result.amount || 0,
+      status: "pending",
+      paymentMethod: "wallet",
+      paymentReference: result.reference,
+      vendorStatus: result.status,
+    });
+
+    await order.save();
+    req.log.info(
+      `Portal-02 order created. Order ID: ${order._id}, Portal-02 ID: ${result.transactionId}`
+    );
+
+    return res.status(201).json({
+      order: {
+        id: order._id.toString(),
+        vendorOrderId: result.transactionId,
+        status: order.status,
+        vendorStatus: result.status,
+        amount: result.amount,
+        message: result.message,
+        createdAt: order.createdAt,
+      },
+    });
   } catch (err) {
-    req.log.error({ err }, "Create vendor order error");
+    req.log.error({ err }, "Portal-02 order error");
     return res.status(500).json({ error: "Server error" });
   }
 });
 
 /**
  * GET /api/vendor/orders
- * Get all vendor orders (paginated)
+ * Get user's Portal-02 orders from database
  */
 router.get("/orders", requireAuth, async (req: Request, res: Response) => {
   try {
-    if (!vendorClient) {
-      return res.status(503).json({ error: "Vendor service not configured" });
-    }
-
+    const user = (req as any).user;
     const { page = 1, limit = 20 } = req.query;
 
-    const vendorOrders = await vendorClient.getOrders(
-      Number(page),
-      Number(limit),
-      "api"
-    );
+    const skip = (Number(page) - 1) * Number(limit);
+    const orders = await Order.find({ userId: user._id })
+      .skip(skip)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
 
-    return res.json(vendorOrders);
+    const total = await Order.countDocuments({ userId: user._id });
+
+    return res.json({
+      orders,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
   } catch (err) {
     req.log.error({ err }, "Get vendor orders error");
     return res.status(500).json({
-      error: err instanceof Error ? err.message : "Failed to fetch vendor orders",
+      error: err instanceof Error ? err.message : "Failed to fetch orders",
     });
   }
 });

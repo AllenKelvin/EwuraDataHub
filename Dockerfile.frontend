@@ -11,14 +11,14 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY tsconfig.base.json .
 
 # Copy packages
-COPY frontend/ewura-hub ./frontend/ewura-hub
+COPY frontend/allen-datahub ./frontend/allen-datahub
 COPY lib ./lib
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Build frontend
-RUN cd frontend/ewura-hub && \
+RUN cd frontend/allen-datahub && \
     PORT=5173 \
     BASE_PATH=/ \
     pnpm run build
