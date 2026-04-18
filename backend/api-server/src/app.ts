@@ -43,30 +43,48 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
-// CORS Configuration - Production safe
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",").map(o => o.trim());
+// CORS Configuration - Explicitly list allowed origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "http://localhost:8080",
+  "https://ewura-hub.vercel.app",
+  "https://allendatahub.com",
+  "https://ewura-hub-api.onrender.com",
+];
+
+// Add any additional origins from environment variable
+if (process.env.CORS_ORIGIN) {
+  const envOrigins = process.env.CORS_ORIGIN.split(",").map(o => o.trim());
+  allowedOrigins.push(...envOrigins);
+}
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile, curl, etc.)
     if (!origin) {
       return callback(null, true);
     }
     
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.includes(origin);
     
-    // Otherwise reject
-    callback(new Error(`CORS not allowed from origin: ${origin}`));
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      // Don't throw error, just reject silently for preflight
+      logger.warn(`CORS blocked request from origin: ${origin}`);
+      callback(null, false);
+    }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Requested-With"],
   exposedHeaders: ["Content-Length"],
-  maxAge: 86400, // 24 hours
+  maxAge: 86400,
   preflightContinue: false,
+  optionsSuccessStatus: 200,
 }));
 
 // Security Headers
