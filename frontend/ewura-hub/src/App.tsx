@@ -9,6 +9,8 @@ import React from "react";
 
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import BuyData from "@/pages/buy-data";
 import Cart from "@/pages/cart";
@@ -126,6 +128,8 @@ function Router() {
     <Switch>
       <Route path="/login">{() => <GuestRoute component={Login} />}</Route>
       <Route path="/register">{() => <GuestRoute component={Register} />}</Route>
+      <Route path="/forgot-password">{() => <GuestRoute component={ForgotPassword} />}</Route>
+      <Route path="/reset-password">{() => <ResetPassword />}</Route>
 
       <Route path="/dashboard">
         {() => (
@@ -164,11 +168,7 @@ function Router() {
       </Route>
 
       <Route path="/payment-callback">
-        {() => (
-          <AppLayout>
-            <PaymentCallback />
-          </AppLayout>
-        )}
+        {() => <PaymentCallback />}
       </Route>
 
       <Route path="/admin">

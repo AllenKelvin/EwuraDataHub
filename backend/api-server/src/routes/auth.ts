@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { User } from "../models/User";
 import { generateToken } from "../lib/jwt";
+import { randomBytes } from "crypto";
 
 const router = Router();
 
@@ -9,6 +10,9 @@ declare module "express-session" {
     userId?: string;
   }
 }
+
+// In-memory store for password reset tokens (in production, use Redis)
+const resetTokens = new Map<string, { token: string; expiry: number; email: string }>();
 
 router.post("/register", async (req: Request, res: Response) => {
   try {
@@ -169,6 +173,131 @@ router.get("/me", async (req: Request, res: Response) => {
     });
   } catch (err) {
     req.log.error({ err }, "Get me error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/forgot-password", async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if user exists (security best practice)
+      return res.json({ message: "If an account with that email exists, a password reset link has been sent" });
+    }
+
+    // Generate reset token
+    const resetToken = randomBytes(32).toString("hex");
+    const tokenExpiry = Date.now() + 3600000; // 1 hour expiry
+    resetTokens.set(user._id.toString(), { token: resetToken, expiry: tokenExpiry, email });
+
+    req.log.info(`Password reset token generated for user: ${email}`);
+
+    // Send email via Brevo
+    try {
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (!brevoApiKey) {
+        throw new Error("BREVO_API_KEY not configured");
+      }
+
+      const resetLink = `${process.env.FRONTEND_URL || "https://ewura-hub.vercel.app"}/reset-password?token=${resetToken}&userId=${user._id}`;
+
+      const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": brevoApiKey,
+        },
+        body: JSON.stringify({
+          sender: { name: "AllenDataHub", email: "noreply@allendatahub.com" },
+          to: [{ email: user.email, name: user.username }],
+          subject: "Password Reset Request - AllenDataHub",
+          htmlContent: `
+            <div style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 20px;">
+              <div style="background-color: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: 0 auto;">
+                <h2 style="color: #333; margin-bottom: 20px;">Reset Your Password</h2>
+                <p style="color: #666; margin-bottom: 20px;">Hi ${user.username},</p>
+                <p style="color: #666; margin-bottom: 20px;">We received a request to reset your password. Click the link below to create a new password:</p>
+                <a href="${resetLink}" style="display: inline-block; background-color: #000; color: white; padding: 12px 24px; border-radius: 4px; text-decoration: none; margin: 20px 0;">Reset Password</a>
+                <p style="color: #999; font-size: 12px; margin-top: 20px;">This link will expire in 1 hour.</p>
+                <p style="color: #999; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+              </div>
+            </div>
+          `,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        const errorData = await emailResponse.json();
+        req.log.warn(`Brevo email send failed: ${JSON.stringify(errorData)}`);
+        // Still return success to user (email may fail but token is generated)
+      }
+    } catch (emailErr) {
+      req.log.error({ err: emailErr }, "Password reset email failed");
+      // Don't fail the request if email fails
+    }
+
+    return res.json({ message: "If an account with that email exists, a password reset link has been sent" });
+  } catch (err) {
+    req.log.error({ err }, "Forgot password error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { token, userId, password, passwordConfirm } = req.body;
+
+    if (!token || !userId || !password || !passwordConfirm) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (password !== passwordConfirm) {
+      return res.status(400).json({ error: "Passwords do not match" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    // Check if token exists and is valid
+    const tokenData = resetTokens.get(userId);
+    if (!tokenData) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    if (tokenData.token !== token) {
+      return res.status(400).json({ error: "Invalid reset token" });
+    }
+
+    if (Date.now() > tokenData.expiry) {
+      resetTokens.delete(userId);
+      return res.status(400).json({ error: "Reset token has expired" });
+    }
+
+    // Update user password
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.password = password;
+    user.passwordFormat = "bcrypt";
+    await user.save();
+
+    // Clear the reset token
+    resetTokens.delete(userId);
+
+    req.log.info(`Password reset successfully for user: ${user.email}`);
+
+    return res.json({ message: "Password has been reset successfully. You can now log in with your new password." });
+  } catch (err) {
+    req.log.error({ err }, "Reset password error");
     return res.status(500).json({ error: "Server error" });
   }
 });
