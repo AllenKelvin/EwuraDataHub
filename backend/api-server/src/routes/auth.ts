@@ -214,7 +214,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
           "api-key": brevoApiKey,
         },
         body: JSON.stringify({
-          sender: { name: "AllenDataHub", email: "noreply@allendatahub.com" },
+          sender: { name: "AllenDataHub", email: "allendatahub@gmail.com" },
           to: [{ email: user.email, name: user.username }],
           subject: "Password Reset Request - AllenDataHub",
           htmlContent: `
