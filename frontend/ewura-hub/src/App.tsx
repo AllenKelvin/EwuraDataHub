@@ -152,15 +152,23 @@ function Router() {
   );
 }
 
+function AppContent() {
+  const { user } = useAuth();
+  
+  return (
+    <CartProvider userId={user?._id}>
+      <Router />
+    </CartProvider>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AuthProvider>
-            <CartProvider>
-              <Router />
-            </CartProvider>
+            <AppContent />
           </AuthProvider>
         </WouterRouter>
         <Toaster />

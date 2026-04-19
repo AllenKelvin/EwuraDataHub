@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 export interface CartItem {
   productId: string;
@@ -23,10 +23,73 @@ const CartContext = createContext<CartContextType>({
   clearCart: () => {},
 });
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [item, setItemState] = useState<CartItem | null>(null);
+const CART_STORAGE_PREFIX = "cart_";
+
+/**
+ * Get cart storage key for a specific user
+ * Users who aren't logged in get a "guest" key
+ */
+function getCartKey(userId?: string) {
+  return userId ? `${CART_STORAGE_PREFIX}${userId}` : `${CART_STORAGE_PREFIX}guest`;
+}
+
+/**
+ * Load cart from localStorage for a specific user
+ */
+function loadCartFromStorage(userId?: string): CartItem | null {
+  try {
+    const key = getCartKey(userId);
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save cart to localStorage for a specific user
+ */
+function saveCartToStorage(userId: string | undefined, item: CartItem | null) {
+  try {
+    const key = getCartKey(userId);
+    if (item) {
+      localStorage.setItem(key, JSON.stringify(item));
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Fail silently if localStorage is unavailable
+  }
+}
+
+export function CartProvider({ children, userId }: { children: React.ReactNode; userId?: string }) {
+  const [item, setItemState] = useState<CartItem | null>(() => {
+    // Load cart for current user on mount
+    return loadCartFromStorage(userId);
+  });
+
+  // Update localStorage whenever item changes
+  useEffect(() => {
+    saveCartToStorage(userId, item);
+  }, [item, userId]);
+
+  // Clear cart when user changes (logout)
+  useEffect(() => {
+    if (!userId) {
+      setItemState(null);
+    }
+  }, [userId]);
+
+  const setItem = useCallback((newItem: CartItem | null) => {
+    setItemState(newItem);
+  }, []);
+
+  const clearCart = useCallback(() => {
+    setItemState(null);
+  }, []);
+
   return (
-    <CartContext.Provider value={{ item, setItem: setItemState, clearCart: () => setItemState(null) }}>
+    <CartContext.Provider value={{ item, setItem, clearCart }}>
       {children}
     </CartContext.Provider>
   );
