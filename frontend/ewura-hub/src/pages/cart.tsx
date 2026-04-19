@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useCreateOrder, getGetOrdersQueryKey, getGetWalletQueryKey, useGetWallet } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,21 @@ export default function Cart() {
     query: { enabled: isAgent, queryKey: getGetWalletQueryKey() },
   });
 
-  const createOrderMutation = useCreateOrder();
+  // Use custom mutation with idempotency support
+  const createOrderMutation = useMutation({
+    mutationFn: async (data: { productId: string; recipientPhone: string; paymentMethod: "wallet" | "paystack" }) => {
+      // Generate unique idempotency key for this order attempt
+      const idempotencyKey = `${user?.id}-${data.productId}-${data.recipientPhone}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Import createOrder directly and pass custom headers
+      const { createOrder } = await import("@workspace/api-client-react");
+      return createOrder(data, {
+        headers: {
+          "Idempotency-Key": idempotencyKey,
+        },
+      });
+    },
+  });
 
   if (!item) {
     return (
@@ -75,7 +89,7 @@ export default function Cart() {
     if (!item) return;
     
     createOrderMutation.mutate(
-      { data: { productId: item.productId, recipientPhone: item.recipientPhone, paymentMethod } },
+      { productId: item.productId, recipientPhone: item.recipientPhone, paymentMethod },
       {
         onSuccess: (res) => {
           console.log('Order created successfully:', res);

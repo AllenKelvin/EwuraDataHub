@@ -55,6 +55,21 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Product with ID '${productId}' not found in database` });
     }
 
+    // ===== IDEMPOTENCY CHECK =====
+    // Prevent duplicate orders from retried requests
+    const idempotencyKey = req.headers['idempotency-key'] as string || 
+                          `${user._id}-${productId}-${recipientPhone}-${paymentMethod}`;
+    
+    const existingOrder = await Order.findOne({ idempotencyKey, userId: user._id });
+    if (existingOrder) {
+      req.log.info(`⚠️  Duplicate order request detected. Returning existing order: ${existingOrder._id}`);
+      return res.status(201).json({
+        order: formatOrder(existingOrder),
+        message: "Order already exists (idempotent request)",
+        isDuplicate: true,
+      });
+    }
+
     const isAgent = user.role === "agent" || user.role === "admin";
     const price = isAgent ? product.agentPrice : product.userPrice;
 
@@ -149,6 +164,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         status: "processing", // Start as processing to sync with vendor
         paymentMethod: "wallet",
         paymentReference: reference,
+        idempotencyKey,
         vendorOrderId,
         vendorProductId,
         vendorStatus: vendorOrderId ? "pending" : undefined,
@@ -191,6 +207,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       status: "pending",  // Will stay pending until Paystack webhook confirms payment
       paymentMethod: "paystack",
       paymentReference: reference,
+      idempotencyKey,
       // DO NOT set vendorOrderId/vendorProductId yet - wait for webhook
     });
     await order.save();

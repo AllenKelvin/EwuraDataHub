@@ -13,6 +13,9 @@ const OrderSchema = new mongoose.Schema({
   paymentMethod: { type: String, enum: ["paystack", "wallet", "vendor_wallet"], required: true },
   paymentReference: { type: String },
   
+  // Idempotency support - prevents duplicate orders on retries
+  idempotencyKey: { type: String, index: true },
+  
   // Vendor integration fields
   vendorOrderId: { type: String },
   vendorProductId: { type: String },
@@ -33,6 +36,7 @@ export interface IOrder {
   status: "pending" | "processing" | "completed" | "failed";
   paymentMethod: "paystack" | "wallet" | "vendor_wallet";
   paymentReference?: string;
+  idempotencyKey?: string;
   vendorOrderId?: string;
   vendorProductId?: string;
   vendorPhoneNumber?: string;
