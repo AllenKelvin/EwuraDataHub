@@ -67,6 +67,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:8080",
   "https://ewura-hub.vercel.app",
+  "https://allendata-allen-kelvins-projects.vercel.app",
   "https://allendatahub.com",
   "https://ewura-hub-api.onrender.com",
 ];
