@@ -1,11 +1,14 @@
 import crypto from 'crypto';
 import bcryptjs from 'bcryptjs';
+import { promisify } from 'util';
+
+const scryptAsync = promisify(crypto.scrypt);
 
 /**
- * Legacy password verification - SHA512 with salt
+ * Legacy password verification - Scrypt with salt
  * Old format: hash.salt (both hex-encoded)
  */
-export function verifyLegacyPassword(plaintext: string, hashed: string): boolean {
+export async function verifyLegacyPassword(plaintext: string, hashed: string): Promise<boolean> {
   try {
     if (!hashed.includes('.')) {
       return false;
@@ -16,13 +19,16 @@ export function verifyLegacyPassword(plaintext: string, hashed: string): boolean
       return false;
     }
 
-    // Recreate the hash using the stored salt
-    const computedHash = crypto
-      .createHash('sha512')
-      .update(plaintext + salt)
-      .digest('hex');
+    // Recreate the scrypt hash using the stored salt
+    const hashedPasswordBuf = Buffer.from(hash, 'hex');
+    const suppliedPasswordBuf = (await scryptAsync(plaintext, salt, 64)) as Buffer;
 
-    return computedHash === hash;
+    // Use timing-safe comparison
+    try {
+      return crypto.timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+    } catch {
+      return false;
+    }
   } catch {
     return false;
   }
@@ -48,23 +54,23 @@ export async function hashPassword(plaintext: string): Promise<string> {
 }
 
 /**
- * Detect if password is in old format (legacy SHA512)
+ * Detect if password is in old format (legacy scrypt)
  */
 export function isLegacyFormat(hashed: string): boolean {
   return hashed.includes('.') && !hashed.startsWith('$2');
 }
 
 /**
- * Verify password - supports both old and new formats
+ * Verify password - supports both old (scrypt) and new (bcrypt) formats
  * Returns { valid: boolean, needsMigration: boolean }
  */
 export async function verifyPasswordWithMigration(
   plaintext: string,
   hashed: string
 ): Promise<{ valid: boolean; needsMigration: boolean }> {
-  // Try legacy format first (synchronous, faster)
+  // Try legacy format first (scrypt)
   if (isLegacyFormat(hashed)) {
-    const valid = verifyLegacyPassword(plaintext, hashed);
+    const valid = await verifyLegacyPassword(plaintext, hashed);
     return { valid, needsMigration: valid }; // If valid with legacy, needs migration
   }
 
