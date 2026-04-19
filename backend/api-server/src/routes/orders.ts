@@ -73,15 +73,14 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       
       // Initialize vendor order fields
       let vendorOrderId: string | undefined;
-      let vendorProductId = product.vendorProductId;
       let vendorError: string | undefined;
 
-      // Call vendor API if configured and product has vendor ID
-      if (vendorProductId && validatePhoneNumber(recipientPhone)) {
+      // ALWAYS call Portal-02 for wallet orders (mandatory vendor integration)
+      if (validatePhoneNumber(recipientPhone)) {
         try {
           // Format phone number for vendor API
           const formattedPhone = formatPhoneNumber(recipientPhone);
-          req.log.info(`Calling Portal-02 for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+          req.log.info(`📞 [Portal-02] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
           
           // Extract network from product
           const result = await portal02Service.purchaseDataBundle(
@@ -96,10 +95,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
           
           if (result.success) {
             vendorOrderId = result.transactionId;
-            req.log.info(`✅ Portal-02 order created successfully. Order ID: ${vendorOrderId}`);
+            req.log.info(`✅ [Portal-02] Order created successfully. Vendor ID: ${vendorOrderId}`);
           } else {
             vendorError = result?.error || "Unknown Portal-02 error";
-            req.log.error(`❌ Portal-02 API failed: ${vendorError}`);
+            req.log.error(`❌ [Portal-02] API failed: ${vendorError}`);
             return res.status(502).json({ 
               error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
               vendorError
@@ -107,14 +106,18 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
           }
         } catch (vendorErr) {
           vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
-          req.log.error({ err: vendorErr }, `❌ CRITICAL: Portal-02 API call failed: ${vendorError}`);
+          req.log.error({ err: vendorErr }, `❌ [Portal-02] CRITICAL: Vendor API call failed: ${vendorError}`);
           return res.status(502).json({ 
             error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
             vendorError
           });
         }
-      } else if (vendorProductId && !validatePhoneNumber(recipientPhone)) {
-        req.log.warn(`Invalid phone number for Portal-02: ${recipientPhone} - proceeding with local order only`);
+      } else {
+        req.log.error(`❌ Invalid phone number for Portal-02: ${recipientPhone}`);
+        return res.status(400).json({ 
+          error: `Invalid phone number. Must be valid Ghana number.`,
+          recipientPhone
+        });
       }
 
       const order = new Order({

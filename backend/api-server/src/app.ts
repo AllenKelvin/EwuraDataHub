@@ -3,7 +3,6 @@ import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import router from "./routes";
-import agentApiRouter from "./routes/agent-api";
 import { logger } from "./lib/logger";
 import { connectMongoDB, mongoose } from "./lib/mongodb";
 import { seedAdminAccounts } from "./lib/seed";
@@ -170,9 +169,6 @@ app.get("/", (_req, res) => {
 
 // Main API routes
 app.use("/api", router);
-
-// Agent API v2.0 routes
-app.use("/agent-api", agentApiRouter);
 
 // 404 handler
 app.use((req, res) => {
