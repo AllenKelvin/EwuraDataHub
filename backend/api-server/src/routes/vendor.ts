@@ -146,8 +146,8 @@ router.post("/webhook", async (req: Request, res: Response) => {
     const { event, orderId, status, details } = req.body;
 
     req.log.info(
-      { event, orderId, status },
-      "Received vendor webhook"
+      { event, orderId, status, details },
+      "🔔 Portal-02 webhook received"
     );
 
     if (event === "order.status_updated") {
@@ -155,28 +155,34 @@ router.post("/webhook", async (req: Request, res: Response) => {
       const order = await Order.findOne({ vendorOrderId: orderId });
 
       if (order) {
+        const oldStatus = order.vendorStatus;
         // Update order status
         order.vendorStatus = status;
 
         if (status === "completed") {
           order.status = "completed";
+          req.log.info(`✅ [Portal-02 Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
         } else if (status === "failed") {
           order.status = "failed";
+          req.log.error(`❌ [Portal-02 Webhook] Order ${order._id} failed. Vendor ID: ${orderId}`);
         } else if (status === "processing") {
           order.status = "processing";
+          req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
         }
 
         await order.save();
-        req.log.info(`Order ${order._id} updated with vendor status: ${status}`);
+        req.log.info(`[Portal-02 Webhook] Order ${order._id} updated: ${oldStatus} → ${status}`);
       } else {
-        req.log.warn(`No local order found for vendor order: ${orderId}`);
+        req.log.warn(`[Portal-02 Webhook] ⚠️ No local order found for vendor order: ${orderId}`);
       }
+    } else {
+      req.log.warn(`[Portal-02 Webhook] Unknown event type: ${event}`);
     }
 
     // Always respond with 200 to acknowledge receipt
     return res.status(200).json({ received: true });
   } catch (err) {
-    req.log.error({ err }, "Vendor webhook error");
+    req.log.error({ err }, "Portal-02 webhook error");
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 });

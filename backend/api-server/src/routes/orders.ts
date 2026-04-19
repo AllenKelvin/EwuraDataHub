@@ -76,16 +76,19 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    // ===== CALL PORTAL-02 FOR BOTH WALLET AND PAYSTACK =====
+    // ===== FOR WALLET: CALL PORTAL-02 IMMEDIATELY =====
+    // ===== FOR PAYSTACK: WAIT FOR WEBHOOK CONFIRMATION =====
     let vendorOrderId: string | undefined;
     let vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
     let vendorError: string | undefined;
 
-    if (validatePhoneNumber(recipientPhone)) {
+    // Only call Portal-02 for WALLET payments (user has sufficient balance already)
+    // For Paystack, we wait for the webhook to confirm payment before calling Portal-02
+    if (paymentMethod === "wallet" && validatePhoneNumber(recipientPhone)) {
       try {
         // Format phone number for vendor API
         const formattedPhone = formatPhoneNumber(recipientPhone);
-        req.log.info(`📞 [Portal-02] Calling vendor for ${paymentMethod} payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+        req.log.info(`📞 [Portal-02] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
         
         // Extract network from product
         const result = await portal02Service.purchaseDataBundle(
@@ -104,29 +107,26 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         } else {
           vendorError = result?.error || "Unknown Portal-02 error";
           req.log.error(`❌ [Portal-02] API failed: ${vendorError}`);
-          // For paystack, show error but allow order to continue (payment will retry later)
           // For wallet, reject immediately since we're deducting from wallet
-          if (paymentMethod === "wallet") {
-            return res.status(502).json({ 
-              error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
-              vendorError
-            });
-          }
+          return res.status(502).json({ 
+            error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+            vendorError
+          });
         }
       } catch (vendorErr) {
         vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
         req.log.error({ err: vendorErr }, `❌ [Portal-02] CRITICAL: Vendor API call failed: ${vendorError}`);
-        // For paystack, show error but allow order to continue
         // For wallet, reject immediately
-        if (paymentMethod === "wallet") {
-          return res.status(502).json({ 
-            error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
-            vendorError
-          });
-        }
+        return res.status(502).json({ 
+          error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+          vendorError
+        });
       }
-    } else {
-      req.log.error(`❌ Invalid phone number for Portal-02: ${recipientPhone}`);
+    }
+    
+    // Validate phone number for Paystack orders too (but don't call Portal-02 yet)
+    if (!validatePhoneNumber(recipientPhone)) {
+      req.log.error(`❌ Invalid phone number: ${recipientPhone}`);
       return res.status(400).json({ 
         error: `Invalid phone number. Must be valid Ghana number.`,
         recipientPhone
@@ -177,7 +177,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     // ===== PAYSTACK PAYMENT FLOW =====
-
+    // Portal-02 will be called in the Paystack webhook after payment is confirmed
     const reference = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const order = new Order({
       userId: user._id,
@@ -188,12 +188,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       productName: product.name,
       recipientPhone,
       amount: price,
-      status: "pending",
+      status: "pending",  // Will stay pending until Paystack webhook confirms payment
       paymentMethod: "paystack",
       paymentReference: reference,
-      vendorOrderId,
-      vendorProductId,
-      vendorStatus: vendorOrderId ? "pending" : undefined,
+      // DO NOT set vendorOrderId/vendorProductId yet - wait for webhook
     });
     await order.save();
     req.log.info(`Order created with pending payment. Order ID: ${order._id}, Reference: ${reference}${vendorOrderId ? `, Vendor Order ID: ${vendorOrderId}` : ""}`);
