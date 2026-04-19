@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { Package } from "../models/Package";
+import { Product } from "../models/Product";
 
 const router = Router();
 
@@ -13,15 +13,15 @@ router.get("/", async (req: Request, res: Response) => {
     }
 
     // Try to fetch from MongoDB first, fallback to empty array if no connection
-    let packages: any[] = [];
+    let products: any[] = [];
     try {
-      packages = await Package.find(filter).lean();
+      products = await Product.find(filter).lean();
     } catch (err) {
       // If MongoDB is not available, return empty array
-      packages = [];
+      products = [];
     }
 
-    return res.json(packages);
+    return res.json(products);
   } catch (err) {
     return res.status(500).json({ error: "Failed to fetch products" });
   }

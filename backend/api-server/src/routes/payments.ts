@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { Order } from "../models/Order";
 import { User } from "../models/User";
 import { WalletTransaction } from "../models/WalletTransaction";
-import { Package } from "../models/Package";
+import { Product } from "../models/Product";
 import { requireAuth } from "../lib/auth-middleware";
 import portal02Service from "../lib/portal02";
 import { formatPhoneNumber, validatePhoneNumber } from "../lib/phone-utils";
@@ -77,7 +77,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
       // Try to call vendor API if this is a product order (not wallet fund)
       if (order.paymentMethod === "paystack" && !data.data.metadata?.type) {
         try {
-          const product = await Package.findById(order.productId);
+          const product = await Product.findById(order.productId);
           const vendorProductId = product?.vendorProductId;
           
           if (vendorProductId && validatePhoneNumber(order.recipientPhone)) {
@@ -167,7 +167,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
         // Try to call vendor API if this is a product order (not wallet fund)
         if (order.paymentMethod === "paystack" && !event.data.metadata?.type) {
           try {
-            const product = await Package.findById(order.productId);
+            const product = await Product.findById(order.productId);
             const vendorProductId = product?.vendorProductId;
             
             if (vendorProductId && validatePhoneNumber(order.recipientPhone)) {

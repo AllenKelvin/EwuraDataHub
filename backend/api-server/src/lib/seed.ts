@@ -1,5 +1,5 @@
 import { User } from "../models/User";
-import { Package } from "../models/Package";
+import { Product } from "../models/Product";
 import { logger } from "./logger";
 
 const ADMIN_ACCOUNTS = [
@@ -53,10 +53,10 @@ export async function seedAdminAccounts() {
       // Seed packages (only add if not exists - preserve custom prices)
       (async () => {
         try {
-          const count = await Package.countDocuments();
+          const count = await Product.countDocuments();
           if (count === 0) {
             // Only seed on first run, never overwrite existing packages
-            await Package.insertMany(PACKAGES);
+            await Product.insertMany(PACKAGES);
             logger.info(`Seeded ${PACKAGES.length} packages`);
           } else {
             logger.info(`Database already has ${count} packages - skipping seed (preserving custom prices)`);
@@ -105,7 +105,7 @@ async function updatePackageVendorIds() {
 
   let updated = 0;
   for (const [packageName, vendorId] of Object.entries(vendorMappings)) {
-    const result = await Package.updateOne(
+    const result = await Product.updateOne(
       { name: packageName, vendorProductId: { $exists: false } },
       { $set: { vendorProductId: vendorId } }
     );

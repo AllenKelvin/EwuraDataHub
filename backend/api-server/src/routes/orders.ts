@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { Order } from "../models/Order";
 import { User } from "../models/User";
-import { Package } from "../models/Package";
+import { Product } from "../models/Product";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { requireAuth } from "../lib/auth-middleware";
 import portal02Service from "../lib/portal02";
@@ -50,7 +50,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     // Fetch product from database instead of static data
-    const product = await Package.findById(productId);
+    const product = await Product.findById(productId);
     if (!product) {
       return res.status(400).json({ error: `Product with ID '${productId}' not found in database` });
     }

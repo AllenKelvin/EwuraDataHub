@@ -7,7 +7,7 @@
 import { Router, type Request, type Response } from "express";
 import { Order } from "../models/Order";
 import { User } from "../models/User";
-import { Package } from "../models/Package";
+import { Product } from "../models/Product";
 import { requireAuth } from "../lib/auth-middleware";
 import { normalizePhoneNumber } from "../lib/phone-utils";
 import { z } from "zod";
@@ -162,7 +162,7 @@ router.post("/orders/create", async (req: Request, res: Response) => {
     }
 
     // Get product
-    const product = await Package.findById(productId);
+    const product = await Product.findById(productId);
     if (!product) {
       return sendError(
         res,
@@ -436,7 +436,7 @@ router.get("/products", async (req: Request, res: Response) => {
 
     console.log(`[${requestId}] Fetching products`);
 
-    const products = await Package.find({}).lean();
+    const products = await Product.find({}).lean();
 
     return sendSuccess(res, {
       products: products.map((p: any) => ({
