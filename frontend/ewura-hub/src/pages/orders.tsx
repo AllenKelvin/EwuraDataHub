@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import { useGetOrders, getGetOrdersQueryKey } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ShoppingBag, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Loader2, ShoppingBag, CheckCircle, XCircle, Clock, MoreVertical } from "lucide-react";
+import FloatingChat from "@/components/FloatingChat";
+import OrderComplaintDialog from "@/components/OrderComplaintDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const NETWORKS: Record<string, { dot: string; bg: string; text: string }> = {
   MTN: { dot: "bg-yellow-400", bg: "bg-yellow-50", text: "text-yellow-800" },
@@ -26,6 +34,8 @@ export default function Orders() {
   const [networkFilter, setNetworkFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [refetchInterval, setRefetchInterval] = useState<number | false>(false);
+  const [selectedOrderForComplaint, setSelectedOrderForComplaint] = useState<any>(null);
+  const [isComplaintDialogOpen, setIsComplaintDialogOpen] = useState(false);
 
   const params: any = { limit: 15, page };
   if (statusFilter !== "all") params.status = statusFilter;
@@ -59,6 +69,18 @@ export default function Orders() {
         <h1 className="text-2xl font-black text-foreground">My Orders</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Your complete order history</p>
       </div>
+
+      {/* Floating Chat */}
+      <FloatingChat />
+
+      {/* Complaint Dialog */}
+      {selectedOrderForComplaint && (
+        <OrderComplaintDialog
+          isOpen={isComplaintDialogOpen}
+          onOpenChange={setIsComplaintDialogOpen}
+          order={selectedOrderForComplaint}
+        />
+      )}
 
       <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         {/* Filters */}
@@ -117,6 +139,7 @@ export default function Orders() {
                     <th className="px-5 py-3">Payment</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3">Date</th>
+                    <th className="px-5 py-3 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -151,6 +174,23 @@ export default function Orders() {
                         <td className="px-5 py-3.5 text-xs text-muted-foreground">
                           {new Date(order.createdAt).toLocaleDateString("en-GH")}
                         </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="hover:bg-muted p-1.5 rounded-lg transition-colors">
+                              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedOrderForComplaint(order);
+                                  setIsComplaintDialogOpen(true);
+                                }}
+                              >
+                                Report Issue
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
                       </tr>
                     );
                   })}
@@ -177,10 +217,27 @@ export default function Orders() {
                             <p className="font-bold text-sm">{order.network}</p>
                           </div>
                         </div>
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
-                          <Icon className="h-3 w-3" />
-                          {st.label}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
+                            <Icon className="h-3 w-3" />
+                            {st.label}
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="hover:bg-muted p-1.5 rounded-lg transition-colors">
+                              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedOrderForComplaint(order);
+                                  setIsComplaintDialogOpen(true);
+                                }}
+                              >
+                                Report Issue
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
