@@ -149,6 +149,17 @@ export default function Cart() {
             return;
           }
           
+          // Handle 502 errors (vendor API failures for wallet payments)
+          if (err?.response?.status === 502) {
+            errorMsg = err?.response?.data?.error || "Payment service temporarily unavailable. Please try again in a moment.";
+            toast({
+              title: "Payment Failed",
+              description: errorMsg,
+              variant: "destructive"
+            });
+            return;
+          }
+          
           // Try to extract detailed error message
           if (err?.response?.data?.error) {
             errorMsg = err.response.data.error;

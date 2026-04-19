@@ -55,6 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem('token');
     queryClient.setQueryData(getGetMeQueryKey(), null);
+    // Clear all user-specific data on logout
+    queryClient.clear();
+    // Clear all cart data to prevent showing in other accounts
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('cart_')) {
+        localStorage.removeItem(key);
+      }
+    });
   };
 
   return (

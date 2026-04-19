@@ -75,9 +75,23 @@ export function CartProvider({ children, userId }: { children: React.ReactNode; 
 
   // Reload cart whenever userId changes (handles login/logout transitions)
   useEffect(() => {
-    // Load the cart for the new userId
+    // When userId changes, always load the new user's cart
+    // This handles both login/logout and switching between accounts
     const newCart = loadCartFromStorage(userId);
     setItemState(newCart);
+  }, [userId]);
+  
+  // Force clear cart and localStorage when logging out (userId becomes undefined)
+  useEffect(() => {
+    if (userId === undefined) {
+      setItemState(null);
+      // Clear all user carts to prevent cross-contamination
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(CART_STORAGE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
   }, [userId]);
 
   const setItem = useCallback((newItem: CartItem | null) => {
