@@ -58,6 +58,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const isAgent = user.role === "agent" || user.role === "admin";
     const price = isAgent ? product.agentPrice : product.userPrice;
 
+    // Validate payment method
+    if (paymentMethod !== "wallet" && paymentMethod !== "paystack") {
+      return res.status(400).json({ error: `Invalid payment method: '${paymentMethod}'. Use 'wallet' or 'paystack'` });
+    }
+
+    // Validate wallet payment requirements
     if (paymentMethod === "wallet") {
       if (!isAgent) {
         return res.status(403).json({ error: "Wallet payment is only available for agents" });
@@ -68,58 +74,69 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       if (user.walletBalance < price) {
         return res.status(400).json({ error: `Insufficient wallet balance. Required: ${price}, Available: ${user.walletBalance}` });
       }
+    }
 
-      const reference = `WALLET-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      
-      // Initialize vendor order fields
-      let vendorOrderId: string | undefined;
-      let vendorError: string | undefined;
+    // ===== CALL PORTAL-02 FOR BOTH WALLET AND PAYSTACK =====
+    let vendorOrderId: string | undefined;
+    let vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
+    let vendorError: string | undefined;
 
-      // ALWAYS call Portal-02 for wallet orders (mandatory vendor integration)
-      if (validatePhoneNumber(recipientPhone)) {
-        try {
-          // Format phone number for vendor API
-          const formattedPhone = formatPhoneNumber(recipientPhone);
-          req.log.info(`📞 [Portal-02] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
-          
-          // Extract network from product
-          const result = await portal02Service.purchaseDataBundle(
-            formattedPhone,
-            product.dataAmount,
-            product.network
-          );
-          
-          if (!result) {
-            throw new Error("Portal-02 service returned empty result");
-          }
-          
-          if (result.success) {
-            vendorOrderId = result.transactionId;
-            req.log.info(`✅ [Portal-02] Order created successfully. Vendor ID: ${vendorOrderId}`);
-          } else {
-            vendorError = result?.error || "Unknown Portal-02 error";
-            req.log.error(`❌ [Portal-02] API failed: ${vendorError}`);
+    if (validatePhoneNumber(recipientPhone)) {
+      try {
+        // Format phone number for vendor API
+        const formattedPhone = formatPhoneNumber(recipientPhone);
+        req.log.info(`📞 [Portal-02] Calling vendor for ${paymentMethod} payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+        
+        // Extract network from product
+        const result = await portal02Service.purchaseDataBundle(
+          formattedPhone,
+          product.dataAmount,
+          product.network
+        );
+        
+        if (!result) {
+          throw new Error("Portal-02 service returned empty result");
+        }
+        
+        if (result.success) {
+          vendorOrderId = result.transactionId;
+          req.log.info(`✅ [Portal-02] Order created successfully. Vendor ID: ${vendorOrderId}`);
+        } else {
+          vendorError = result?.error || "Unknown Portal-02 error";
+          req.log.error(`❌ [Portal-02] API failed: ${vendorError}`);
+          // For paystack, show error but allow order to continue (payment will retry later)
+          // For wallet, reject immediately since we're deducting from wallet
+          if (paymentMethod === "wallet") {
             return res.status(502).json({ 
               error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
               vendorError
             });
           }
-        } catch (vendorErr) {
-          vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
-          req.log.error({ err: vendorErr }, `❌ [Portal-02] CRITICAL: Vendor API call failed: ${vendorError}`);
+        }
+      } catch (vendorErr) {
+        vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
+        req.log.error({ err: vendorErr }, `❌ [Portal-02] CRITICAL: Vendor API call failed: ${vendorError}`);
+        // For paystack, show error but allow order to continue
+        // For wallet, reject immediately
+        if (paymentMethod === "wallet") {
           return res.status(502).json({ 
             error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
             vendorError
           });
         }
-      } else {
-        req.log.error(`❌ Invalid phone number for Portal-02: ${recipientPhone}`);
-        return res.status(400).json({ 
-          error: `Invalid phone number. Must be valid Ghana number.`,
-          recipientPhone
-        });
       }
+    } else {
+      req.log.error(`❌ Invalid phone number for Portal-02: ${recipientPhone}`);
+      return res.status(400).json({ 
+        error: `Invalid phone number. Must be valid Ghana number.`,
+        recipientPhone
+      });
+    }
 
+    // ===== WALLET PAYMENT FLOW =====
+    if (paymentMethod === "wallet") {
+      const reference = `WALLET-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      
       const order = new Order({
         userId: user._id,
         username: user.username,
@@ -134,6 +151,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         paymentReference: reference,
         vendorOrderId,
         vendorProductId,
+        vendorStatus: vendorOrderId ? "pending" : undefined,
       });
       await order.save();
 
@@ -158,9 +176,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    if (paymentMethod !== "paystack") {
-      return res.status(400).json({ error: `Invalid payment method: '${paymentMethod}'. Use 'wallet' or 'paystack'` });
-    }
+    // ===== PAYSTACK PAYMENT FLOW =====
 
     const reference = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const order = new Order({
@@ -175,9 +191,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       status: "pending",
       paymentMethod: "paystack",
       paymentReference: reference,
+      vendorOrderId,
+      vendorProductId,
+      vendorStatus: vendorOrderId ? "pending" : undefined,
     });
     await order.save();
-    req.log.info(`Order created with pending payment. Order ID: ${order._id}, Reference: ${reference}`);
+    req.log.info(`Order created with pending payment. Order ID: ${order._id}, Reference: ${reference}${vendorOrderId ? `, Vendor Order ID: ${vendorOrderId}` : ""}`);
 
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
     let paymentUrl: string | undefined;
