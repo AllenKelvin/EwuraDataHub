@@ -50,8 +50,9 @@ export default function Cart() {
   // Use custom mutation with idempotency support
   const createOrderMutation = useMutation({
     mutationFn: async (data: { productId: string; recipientPhone: string; paymentMethod: "wallet" | "paystack" }) => {
-      // Generate unique idempotency key for this order attempt
-      const idempotencyKey = `${user?.id}-${data.productId}-${data.recipientPhone}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Generate deterministic idempotency key (same for same order data = enables idempotency)
+      // Uses only the order data itself, not timestamps or random values
+      const idempotencyKey = `${user?.id}-${data.productId}-${data.recipientPhone}-${data.paymentMethod}`;
       
       // Import createOrder directly and pass custom headers
       const { createOrder } = await import("@workspace/api-client-react");
@@ -132,6 +133,8 @@ export default function Cart() {
         },
         onError: (err: any) => {
           console.error('Order creation error:', err);
+          console.error('Error response status:', err?.response?.status);
+          console.error('Error response data:', err?.response?.data);
           let errorMsg = "Failed to place order";
           
           // Handle authentication errors
