@@ -114,7 +114,7 @@ export default function AdminOrders() {
                         </td>
                         <td className="px-5 py-3.5">{order.productName}</td>
                         <td className="px-5 py-3.5 font-mono text-muted-foreground text-xs">{order.recipientPhone}</td>
-                        <td className="px-5 py-3.5 font-black">₵{order.amount.toFixed(2)}</td>
+                        <td className="px-5 py-3.5 font-black">₵{(order?.amount || 0).toFixed(2)}</td>
                         <td className="px-5 py-3.5">
                           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${order.paymentMethod === "wallet" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
                             {order.paymentMethod}

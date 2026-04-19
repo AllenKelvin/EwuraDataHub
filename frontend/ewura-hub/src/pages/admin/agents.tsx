@@ -112,7 +112,7 @@ export default function AdminAgents() {
                   {/* Balance badge */}
                   <div className="flex items-center gap-2 bg-sidebar rounded-xl px-4 py-2">
                     <Wallet className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-white text-sm font-black">₵{agent.walletBalance.toFixed(2)}</span>
+                    <span className="text-white text-sm font-black">₵{(agent?.walletBalance || 0).toFixed(2)}</span>
                   </div>
 
                   {/* Actions */}

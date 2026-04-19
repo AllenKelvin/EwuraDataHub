@@ -202,7 +202,7 @@ export default function Cart() {
           </div>
           <div className={`border-t border-current/10 pt-2.5 flex justify-between items-center`}>
             <span className={`text-sm font-semibold ${net.text}`}>Total</span>
-            <span className={`text-2xl font-black ${net.text}`}>₵{price.toFixed(2)}</span>
+            <span className={`text-2xl font-black ${net.text}`}>₵{(price || 0).toFixed(2)}</span>
           </div>
           {isAgent && (
             <p className={`text-xs ${net.text} opacity-50 text-right`}>Agent discounted rate</p>
@@ -230,7 +230,7 @@ export default function Cart() {
                 <p className={`font-bold text-sm ${paymentMethod === "wallet" ? "text-primary" : "text-foreground"}`}>Agent Wallet</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Balance: <span className={`font-bold ${!canPayWallet ? "text-red-500" : "text-foreground"}`}>₵{walletData?.balance?.toFixed(2) ?? "0.00"}</span>
+                Balance: <span className={`font-bold ${!canPayWallet ? "text-red-500" : "text-foreground"}`}>₵{(walletData?.balance || 0).toFixed(2)}</span>
               </p>
               {!canPayWallet && paymentMethod === "wallet" && (
                 <p className="text-xs text-red-500 mt-1 font-medium">Insufficient balance</p>
@@ -265,7 +265,7 @@ export default function Cart() {
         {createOrderMutation.isPending ? (
           <><Loader2 className="h-5 w-5 animate-spin" />Processing...</>
         ) : (
-          <>Place Order · ₵{price.toFixed(2)}</>
+          <>Place Order · ₵{(price || 0).toFixed(2)}</>
         )}
       </Button>
 

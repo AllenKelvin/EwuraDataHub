@@ -204,9 +204,9 @@ export default function BuyData() {
                       >
                         <p className={`font-black text-lg ${active ? net?.text : "text-foreground"}`}>{pkg.dataAmount}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 mb-3">{pkg.description}</p>
-                        <p className={`text-base font-black ${active ? net?.text : "text-primary"}`}>₵{pkgPrice.toFixed(2)}</p>
+                        <p className={`text-base font-black ${active ? net?.text : "text-primary"}`}>₵{(pkgPrice || 0).toFixed(2)}</p>
                         {isAgent && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 line-through">₵{pkg.userPrice.toFixed(2)}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 line-through">₵{(pkg?.userPrice || 0).toFixed(2)}</p>
                         )}
                       </button>
                     );
@@ -232,7 +232,7 @@ export default function BuyData() {
             <div className={`flex-1 rounded-xl p-4 ${net?.bg}`}>
               <p className={`text-xs font-semibold uppercase tracking-wider ${net?.text} opacity-70 mb-1`}>{net?.label} Data</p>
               <p className={`text-lg font-black ${net?.text}`}>{selectedProduct.name}</p>
-              <p className={`text-2xl font-black ${net?.text} mt-1`}>₵{price.toFixed(2)}</p>
+              <p className={`text-2xl font-black ${net?.text} mt-1`}>₵{(price || 0).toFixed(2)}</p>
               {isAgent && <p className="text-xs text-muted-foreground mt-0.5">Agent discounted rate</p>}
             </div>
 

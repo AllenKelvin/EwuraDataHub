@@ -136,7 +136,7 @@ export default function Orders() {
                         </td>
                         <td className="px-5 py-3.5 font-medium">{order.productName}</td>
                         <td className="px-5 py-3.5 font-mono text-muted-foreground">{order.recipientPhone}</td>
-                        <td className="px-5 py-3.5 font-black text-foreground">₵{order.amount.toFixed(2)}</td>
+                        <td className="px-5 py-3.5 font-black text-foreground">₵{(order?.amount || 0).toFixed(2)}</td>
                         <td className="px-5 py-3.5">
                           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${paymentBadge[order.paymentMethod] || "bg-muted text-muted-foreground"}`}>
                             {order.paymentMethod}
@@ -195,7 +195,7 @@ export default function Orders() {
                           </div>
                           <div>
                             <p className="text-xs font-semibold text-muted-foreground">Amount</p>
-                            <p className="font-black text-sm">₵{order.amount.toFixed(2)}</p>
+                            <p className="font-black text-sm">₵{(order?.amount || 0).toFixed(2)}</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">

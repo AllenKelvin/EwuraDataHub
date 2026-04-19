@@ -50,7 +50,7 @@ export default function Dashboard() {
     const val = o.productValue || o.productName || "";
     const match = val.match(/(\d+(\.\d+)?)\s*GB/i);
     return sum + (match ? parseFloat(match[1]) : 0);
-  }, 0);
+  }, 0) || 0;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -73,7 +73,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: "Total Orders", value: totalOrders, sub: "Lifetime transactions", icon: Wifi },
-          { label: "Total GB Purchased", value: `${totalGB.toFixed(1)}`, sub: "Lifetime data purchased", icon: Wifi },
+          { label: "Total GB Purchased", value: `${(totalGB || 0).toFixed(1)}`, sub: "Lifetime data purchased", icon: Wifi },
           { label: "Success Rate", value: `${successRate}%`, sub: "Order completion", icon: TrendingUp },
         ].map(({ label, value, sub, icon: Icon }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-5 shadow-sm">
@@ -96,7 +96,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-white/50 text-xs uppercase tracking-wider">Agent Wallet</p>
-              <p className="text-white text-xl font-black">₵{walletData.balance.toFixed(2)}</p>
+              <p className="text-white text-xl font-black">₵{(walletData?.balance || 0).toFixed(2)}</p>
             </div>
           </div>
           <Link href="/wallet">
@@ -156,7 +156,7 @@ export default function Dashboard() {
                       </td>
                       <td className="px-5 py-3.5 font-semibold">{order.productName}</td>
                       <td className="px-5 py-3.5 font-mono text-muted-foreground text-xs">{order.recipientPhone}</td>
-                      <td className="px-5 py-3.5 font-black">₵{order.amount.toFixed(2)}</td>
+                      <td className="px-5 py-3.5 font-black">₵{(order?.amount || 0).toFixed(2)}</td>
                       <td className="px-5 py-3.5">
                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${order.paymentMethod === "wallet" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
                           {order.paymentMethod}

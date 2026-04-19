@@ -150,7 +150,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
               <div className="text-right">
                 <p className="text-sidebar-foreground/40 text-[9px] uppercase">Balance</p>
                 <p className="text-sidebar-foreground text-xs font-bold">
-                  ₵{user?.walletBalance?.toFixed(2) ?? "0.00"}
+                  ₵{(user?.walletBalance || 0).toFixed(2)}
                 </p>
               </div>
             )}

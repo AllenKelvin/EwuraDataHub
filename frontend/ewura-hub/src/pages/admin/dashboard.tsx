@@ -127,7 +127,7 @@ export default function AdminDashboard() {
           <div className="bg-sidebar rounded-2xl p-6 mb-5 shadow-lg flex items-center justify-between">
             <div>
               <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">Total Platform Revenue</p>
-              <p className="text-4xl font-black text-white">₵{stats?.totalRevenue?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-4xl font-black text-white">₵{(stats?.totalRevenue || 0).toFixed(2)}</p>
               <p className="text-white/40 text-xs mt-1">From completed orders only</p>
             </div>
             <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center">
@@ -253,7 +253,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-5 py-3.5">{order.productName}</td>
                           <td className="px-5 py-3.5 font-mono text-muted-foreground text-xs">{order.recipientPhone}</td>
-                          <td className="px-5 py-3.5 font-black">₵{order.amount.toFixed(2)}</td>
+                          <td className="px-5 py-3.5 font-black">₵{(order?.amount || 0).toFixed(2)}</td>
                           <td className="px-5 py-3.5">
                             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${order.paymentMethod === "wallet" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
                               {order.paymentMethod}
@@ -340,7 +340,7 @@ export default function AdminDashboard() {
                       <Wallet className="h-3.5 w-3.5 text-primary" />
                       <div>
                         <p className="text-white/50 text-[9px] uppercase">Balance</p>
-                        <p className="text-white text-sm font-black">₵{agent.walletBalance.toFixed(2)}</p>
+                        <p className="text-white text-sm font-black">₵{(agent?.walletBalance || 0).toFixed(2)}</p>
                       </div>
                     </div>
 

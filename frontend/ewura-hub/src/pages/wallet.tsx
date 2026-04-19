@@ -56,7 +56,7 @@ export default function WalletPage() {
           {walletLoading ? (
             <div className="h-8 w-24 bg-white/10 rounded animate-pulse" />
           ) : (
-            <p className="text-3xl font-black text-white">₵{wallet?.balance?.toFixed(2) ?? "0.00"}</p>
+            <p className="text-3xl font-black text-white">₵{(wallet?.balance || 0).toFixed(2)}</p>
           )}
         </div>
         <div className="bg-card border border-border rounded-2xl p-5">
@@ -64,14 +64,14 @@ export default function WalletPage() {
             <TrendingUp className="h-4 w-4 text-emerald-500" />
             <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Funded</span>
           </div>
-          <p className="text-2xl font-black text-foreground">₵{wallet?.totalFunded?.toFixed(2) ?? "0.00"}</p>
+          <p className="text-2xl font-black text-foreground">₵{(wallet?.totalFunded || 0).toFixed(2)}</p>
         </div>
         <div className="bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown className="h-4 w-4 text-red-500" />
             <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Spent</span>
           </div>
-          <p className="text-2xl font-black text-foreground">₵{wallet?.totalSpent?.toFixed(2) ?? "0.00"}</p>
+          <p className="text-2xl font-black text-foreground">₵{(wallet?.totalSpent || 0).toFixed(2)}</p>
         </div>
       </div>
 
@@ -154,7 +154,7 @@ export default function WalletPage() {
                     <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
                   </div>
                   <span className={`font-black text-base ${tx.type === "credit" ? "text-emerald-600" : "text-red-600"}`}>
-                    {tx.type === "credit" ? "+" : "−"}₵{tx.amount.toFixed(2)}
+                    {tx.type === "credit" ? "+" : "−"}₵{(tx?.amount || 0).toFixed(2)}
                   </span>
                 </div>
               ))}
