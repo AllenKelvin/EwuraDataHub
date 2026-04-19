@@ -166,7 +166,7 @@ function Router() {
       <Route path="/payment-callback">
         {() => (
           <AppLayout>
-            <ProtectedRoute component={PaymentCallback} allowedRoles={["user", "agent"]} />
+            <PaymentCallback />
           </AppLayout>
         )}
       </Route>
