@@ -73,11 +73,11 @@ export function CartProvider({ children, userId }: { children: React.ReactNode; 
     saveCartToStorage(userId, item);
   }, [item, userId]);
 
-  // Clear cart when user changes (logout)
+  // Reload cart whenever userId changes (handles login/logout transitions)
   useEffect(() => {
-    if (!userId) {
-      setItemState(null);
-    }
+    // Load the cart for the new userId
+    const newCart = loadCartFromStorage(userId);
+    setItemState(newCart);
   }, [userId]);
 
   const setItem = useCallback((newItem: CartItem | null) => {

@@ -110,9 +110,9 @@ export default function Cart() {
             });
             clearCart();
             
-            // Refresh page to show updated orders and wallet balance
+            // Navigate to dashboard to show the new order (React navigation, not full reload)
             setTimeout(() => {
-              window.location.href = "/dashboard";
+              navigate("/dashboard");
             }, 1500);
           }
         },

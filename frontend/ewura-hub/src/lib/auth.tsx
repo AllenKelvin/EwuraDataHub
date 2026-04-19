@@ -18,28 +18,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state from localStorage and verify with backend
+  // Initialize auth state - will check with backend via useGetMe query
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          // Token exists, verify it with backend immediately
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        } else {
-          // No token, user is not authenticated
-          setUser(null);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Auth init error:', err);
-        setUser(null);
-        setLoading(false);
-      }
-    };
-    
-    initAuth();
-  }, [queryClient]);
+    // No token initialization needed - useGetMe will handle checking both session and token
+    // Just set loading to true while we wait for the query to complete
+    if (isFetching) {
+      setLoading(true);
+    }
+  }, [isFetching]);
 
   const { data: fetchedUser, isLoading: isFetching, isError } = useGetMe({
     query: {
@@ -50,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnReconnect: true, // Refetch when connection is restored
       gcTime: 24 * 60 * 60 * 1000, // 24 hours
-      enabled: !!localStorage.getItem('token'), // Only fetch if we have a token
+      enabled: true, // Always check auth status (session might still be valid even without token)
     },
   });
 
