@@ -5,7 +5,7 @@ import { requireAuth, requireAgent } from "../lib/auth-middleware";
 
 const router = Router();
 
-router.get("/", requireAuth, requireAgent, async (req: Request, res: Response) => {
+router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     return res.json({
@@ -20,7 +20,7 @@ router.get("/", requireAuth, requireAgent, async (req: Request, res: Response) =
   }
 });
 
-router.post("/fund", requireAuth, requireAgent, async (req: Request, res: Response) => {
+router.post("/fund", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { amount } = req.body;
@@ -70,7 +70,7 @@ router.post("/fund", requireAuth, requireAgent, async (req: Request, res: Respon
   }
 });
 
-router.get("/transactions", requireAuth, requireAgent, async (req: Request, res: Response) => {
+router.get("/transactions", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { limit = 20, page = 1 } = req.query;
