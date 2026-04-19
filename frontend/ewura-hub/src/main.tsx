@@ -13,4 +13,14 @@ setAuthTokenGetter(() => {
   return localStorage.getItem('token');
 });
 
+// Global error handler for uncaught errors
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error:', event.error);
+});
+
+// Global handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
 createRoot(document.getElementById("root")!).render(<App />);

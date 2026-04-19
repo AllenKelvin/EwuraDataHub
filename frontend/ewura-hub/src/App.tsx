@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { AppLayout } from "@/components/layout/AppLayout";
+import React from "react";
 
 import Login from "@/pages/login";
 import Register from "@/pages/register";
@@ -18,6 +19,52 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminAgents from "@/pages/admin/agents";
 import AdminOrders from "@/pages/admin/orders";
 import NotFound from "@/pages/not-found";
+
+// Error Boundary Component
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-4 p-4">
+            <div className="text-2xl font-bold text-destructive">Something went wrong</div>
+            <p className="text-muted-foreground max-w-md text-center">{this.state.error?.message}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { 
@@ -164,16 +211,18 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthProvider>
-            <AppContent />
-          </AuthProvider>
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AuthProvider>
+              <AppContent />
+            </AuthProvider>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
