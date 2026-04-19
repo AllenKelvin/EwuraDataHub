@@ -18,15 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state - will check with backend via useGetMe query
-  useEffect(() => {
-    // No token initialization needed - useGetMe will handle checking both session and token
-    // Just set loading to true while we wait for the query to complete
-    if (isFetching) {
-      setLoading(true);
-    }
-  }, [isFetching]);
-
+  // Fetch user data - always check auth status (session might still be valid even without token)
   const { data: fetchedUser, isLoading: isFetching, isError } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
