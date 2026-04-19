@@ -61,12 +61,14 @@ export default function BuyData() {
 
   const net = NETWORKS.find(n => n.id === selectedNetwork);
 
-  const { data: products, isLoading } = useGetProducts(
+  const { data: products = [], isLoading, isError, error } = useGetProducts(
     { network: selectedNetwork! },
     {
       query: {
         enabled: !!selectedNetwork,
         queryKey: getGetProductsQueryKey({ network: selectedNetwork! }),
+        retry: 3,
+        retryDelay: 500,
       },
     }
   );
@@ -180,9 +182,14 @@ export default function BuyData() {
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : (
+              ) : isError ? (
+                <div className="text-center py-12 text-red-600">
+                  <p className="text-sm mb-2">Failed to load packages</p>
+                  <p className="text-xs text-muted-foreground">{error?.message || "Unknown error"}</p>
+                </div>
+              ) : products && products.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {products?.map((pkg: any) => {
+                  {products.map((pkg: any) => {
                     const active = selectedProductId === pkg._id;
                     const pkgPrice = isAgent ? pkg.agentPrice : pkg.userPrice;
                     return (
@@ -204,6 +211,10 @@ export default function BuyData() {
                       </button>
                     );
                   })}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p className="text-sm">No packages available for {net?.label}</p>
                 </div>
               )}
             </>
