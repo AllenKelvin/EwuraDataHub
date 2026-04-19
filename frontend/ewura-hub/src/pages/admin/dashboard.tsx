@@ -36,8 +36,12 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("orders");
 
 
-  const { data: stats, isLoading: statsLoading } = useGetAdminStats({
-    query: { queryKey: getGetAdminStatsQueryKey() },
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useGetAdminStats({
+    query: { 
+      queryKey: getGetAdminStatsQueryKey(),
+      retry: 3,
+      retryDelay: 500,
+    },
   });
 
   const [statusFilter, setStatusFilter] = useState("all");
@@ -46,8 +50,12 @@ export default function AdminDashboard() {
   const orderParams: any = { limit: 15, page: orderPage };
   if (statusFilter !== "all") orderParams.status = statusFilter;
   if (networkFilter !== "all") orderParams.network = networkFilter;
-  const { data: ordersData, isLoading: ordersLoading } = useGetAdminOrders(orderParams, {
-    query: { queryKey: getGetAdminOrdersQueryKey(orderParams) },
+  const { data: ordersData = { orders: [], total: 0, page: 1, pages: 1 }, isLoading: ordersLoading, isError: ordersError } = useGetAdminOrders(orderParams, {
+    query: { 
+      queryKey: getGetAdminOrdersQueryKey(orderParams),
+      retry: 3,
+      retryDelay: 500,
+    },
   });
 
   const [agentPage, setAgentPage] = useState(1);
@@ -56,8 +64,12 @@ export default function AdminDashboard() {
   const [adjustType, setAdjustType] = useState<"credit" | "debit">("credit");
   const [adjustReason, setAdjustReason] = useState("");
   const agentParams: any = { limit: 20, page: agentPage };
-  const { data: agentsData, isLoading: agentsLoading } = useGetAdminAgents(agentParams, {
-    query: { queryKey: getGetAdminAgentsQueryKey(agentParams) },
+  const { data: agentsData = { agents: [], total: 0, page: 1, pages: 1 }, isLoading: agentsLoading, isError: agentsError } = useGetAdminAgents(agentParams, {
+    query: { 
+      queryKey: getGetAdminAgentsQueryKey(agentParams),
+      retry: 3,
+      retryDelay: 500,
+    },
   });
   const verifyMutation = useVerifyAgent();
   const adjustBalanceMutation = useAdjustAgentBalance();
@@ -106,6 +118,10 @@ export default function AdminDashboard() {
       {/* Stats spotlight */}
       {statsLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : statsError ? (
+        <div className="text-center py-8 text-red-600">
+          <p className="text-sm mb-2">Failed to load admin stats</p>
+        </div>
       ) : (
         <>
           <div className="bg-sidebar rounded-2xl p-6 mb-5 shadow-lg flex items-center justify-between">
@@ -194,6 +210,10 @@ export default function AdminDashboard() {
 
           {ordersLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : ordersError ? (
+            <div className="text-center py-16 text-red-600">
+              <p className="text-sm mb-2">Failed to load orders</p>
+            </div>
           ) : !ordersData?.orders?.length ? (
             <div className="text-center py-16 text-muted-foreground">
               <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-20" />
@@ -285,6 +305,10 @@ export default function AdminDashboard() {
 
           {agentsLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : agentsError ? (
+            <div className="text-center py-16 text-red-600">
+              <p className="text-sm mb-2">Failed to load agents</p>
+            </div>
           ) : !agentsData?.agents?.length ? (
             <div className="text-center py-16 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-20" />

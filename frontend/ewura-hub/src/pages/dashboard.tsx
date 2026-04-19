@@ -23,7 +23,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const isAgent = user?.role === "agent";
 
-  const { data: ordersData, isLoading: ordersLoading } = useGetOrders(
+  const { data: ordersData, isLoading: ordersLoading, isError: ordersError } = useGetOrders(
     { limit: 8, page: 1 },
     { query: { 
       enabled: !!user,
@@ -37,6 +37,8 @@ export default function Dashboard() {
       enabled: isAgent && !!user, 
       queryKey: getGetWalletQueryKey(),
       staleTime: 60_000,
+      retry: 3,
+      retryDelay: 500,
     },
   });
 
