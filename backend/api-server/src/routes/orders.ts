@@ -90,11 +90,15 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
             product.network
           );
           
+          if (!result) {
+            throw new Error("Portal-02 service returned empty result");
+          }
+          
           if (result.success) {
             vendorOrderId = result.transactionId;
             req.log.info(`✅ Portal-02 order created successfully. Order ID: ${vendorOrderId}`);
           } else {
-            vendorError = result.error;
+            vendorError = result?.error || "Unknown Portal-02 error";
             req.log.error(`❌ Portal-02 API failed: ${vendorError}`);
             return res.status(502).json({ 
               error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,

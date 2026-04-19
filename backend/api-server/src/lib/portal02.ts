@@ -201,30 +201,30 @@ class Portal02Service {
     network: string,
     orderReference?: string | null
   ): Promise<PurchaseResult> {
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    const volume = extractVolumeNumber(bundleSize);
-    if (volume <= 0) {
-      return { success: false, platform: "Portal-02.com", error: "Invalid bundle size", code: 400, details: null };
-    }
-    if (!isVolumeAvailable(network, volume)) {
-      return { success: false, platform: "Portal-02.com", error: `${volume}GB not available for ${network}`, code: 422, details: null };
-    }
-
-    const offerSlug = getOfferSlug(network);
-    const webhookUrl = `${BACKEND_URL}/api/webhooks/portal02`;
-    const payload: Record<string, unknown> = {
-      type: "single",
-      volume,
-      phone: formattedPhone,
-      offerSlug,
-      webhookUrl,
-    };
-    if (orderReference) payload.reference = orderReference;
-
-    const endpoint = mapNetworkToEndpoint(network);
-    const url = `${BASE_URL}/order/${endpoint}`;
-
     try {
+      const formattedPhone = formatPhoneNumber(phoneNumber);
+      const volume = extractVolumeNumber(bundleSize);
+      if (volume <= 0) {
+        return { success: false, platform: "Portal-02.com", error: "Invalid bundle size", code: 400, details: null };
+      }
+      if (!isVolumeAvailable(network, volume)) {
+        return { success: false, platform: "Portal-02.com", error: `${volume}GB not available for ${network}`, code: 422, details: null };
+      }
+
+      const offerSlug = getOfferSlug(network);
+      const webhookUrl = `${BACKEND_URL}/api/webhooks/portal02`;
+      const payload: Record<string, unknown> = {
+        type: "single",
+        volume,
+        phone: formattedPhone,
+        offerSlug,
+        webhookUrl,
+      };
+      if (orderReference) payload.reference = orderReference;
+
+      const endpoint = mapNetworkToEndpoint(network);
+      const url = `${BASE_URL}/order/${endpoint}`;
+
       // Set up timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);

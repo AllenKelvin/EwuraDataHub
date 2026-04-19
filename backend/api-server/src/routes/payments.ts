@@ -90,13 +90,13 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
               product?.network
             );
             
-            if (result.success) {
+            if (result && result.success) {
               order.vendorOrderId = result.transactionId;
               order.vendorProductId = vendorProductId;
               order.status = "processing";
               req.log.info(`Portal-02 order created successfully. Order ID: ${order.vendorOrderId}`);
             } else {
-              req.log.warn(`Portal-02 API failed: ${result.error}`);
+              req.log.warn(`Portal-02 API failed: ${result?.error || "Unknown error"}`);
               order.status = "completed";
             }
           } else if (!vendorProductId) {
@@ -180,13 +180,13 @@ router.post("/webhook", async (req: Request, res: Response) => {
                 product?.network
               );
               
-              if (result.success) {
+              if (result && result.success) {
                 order.vendorOrderId = result.transactionId;
                 order.vendorProductId = vendorProductId;
                 order.status = "processing";
                 req.log.info(`Portal-02 order created via webhook. Order ID: ${order.vendorOrderId}`);
               } else {
-                req.log.warn(`Portal-02 API failed: ${result.error}`);
+                req.log.warn(`Portal-02 API failed: ${result?.error || "Unknown error"}`);
                 order.status = "completed";
               }
             } else if (!vendorProductId) {
