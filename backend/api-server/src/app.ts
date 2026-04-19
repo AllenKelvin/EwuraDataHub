@@ -1,6 +1,5 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import router from "./routes";
@@ -18,25 +17,34 @@ connectMongoDB()
     logger.warn({ err }, "MongoDB initialization skipped - running in memory mode");
   });
 
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
+// Custom formatted logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const originalJson = res.json;
+  const originalSend = res.send;
+
+  // Override res.json to capture response data
+  res.json = function (data: any) {
+    const duration = Date.now() - start;
+    const time = new Date().toLocaleTimeString("en-US");
+    const logData = typeof data === "string" ? data : JSON.stringify(data);
+    console.log(`${time} [express] ${req.method} ${req.url?.split("?")[0]} ${res.statusCode} in ${duration}ms :: ${logData}`);
+    return originalJson.call(this, data);
+  };
+
+  // Override res.send for other responses
+  res.send = function (data: any) {
+    const duration = Date.now() - start;
+    const time = new Date().toLocaleTimeString("en-US");
+    if (res.statusCode >= 300 && res.statusCode < 400) {
+      // For 304, 301, etc - just log status
+      console.log(`${time} [express] ${req.method} ${req.url?.split("?")[0]} ${res.statusCode} in ${duration}ms`);
+    }
+    return originalSend.call(this, data);
+  };
+
+  next();
+});
 
 // Security: Trust proxy in production
 if (process.env.NODE_ENV === "production") {

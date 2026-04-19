@@ -5,7 +5,7 @@ import { verifyPasswordWithMigration, hashPassword, isLegacyFormat } from "../li
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  phone: { type: String, required: true, trim: true },
+  phone: { type: String, trim: true, default: null },
   password: { type: String, required: true },
   passwordFormat: { type: String, enum: ["legacy", "bcrypt"], default: "bcrypt" }, // Track password format
   role: { type: String, enum: ["user", "agent", "admin"], default: "user" },
@@ -62,7 +62,7 @@ export interface IUser {
   _id: mongoose.Types.ObjectId;
   username: string;
   email: string;
-  phone: string;
+  phone?: string | null;
   password: string;
   passwordFormat?: "legacy" | "bcrypt";
   role: "user" | "agent" | "admin";
