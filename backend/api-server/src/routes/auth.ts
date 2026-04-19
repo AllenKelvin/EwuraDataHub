@@ -80,10 +80,17 @@ router.post("/login", async (req: Request, res: Response) => {
       ],
     });
 
-    if (!user || !(await user.comparePassword(password))) {
+    if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    const passwordCheck = await user.comparePassword(password);
+    
+    if (!passwordCheck.valid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Password is valid
     req.session.userId = user._id.toString();
     
     // Save session and send response
@@ -95,6 +102,11 @@ router.post("/login", async (req: Request, res: Response) => {
       
       // Generate JWT token for mobile support
       const token = generateToken(user);
+      
+      // Log if password was migrated
+      if (passwordCheck.migrated) {
+        req.log.info(`Password migrated to bcrypt for user: ${user.email}`);
+      }
       
       return res.status(200).json({
         user: {
