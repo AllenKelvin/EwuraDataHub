@@ -28,11 +28,11 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       user._id.toString()
     );
 
-    if (!result.success) {
+    if (!result || !result.success) {
       return res.status(400).json({
-        error: result.error,
-        platform: result.platform,
-        details: result.details,
+        error: result?.error || "Unknown error",
+        platform: result?.platform || "Portal-02.com",
+        details: result?.details || null,
       });
     }
 

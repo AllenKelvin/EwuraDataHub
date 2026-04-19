@@ -17,6 +17,16 @@ connectMongoDB()
     logger.warn({ err }, "MongoDB initialization skipped - running in memory mode");
   });
 
+// Attach logger to request object
+app.use((req, res, next) => {
+  (req as any).log = logger.child({
+    requestId: Math.random().toString(36).substring(7),
+    path: req.path,
+    method: req.method,
+  });
+  next();
+});
+
 // Custom formatted logging middleware
 app.use((req, res, next) => {
   const start = Date.now();

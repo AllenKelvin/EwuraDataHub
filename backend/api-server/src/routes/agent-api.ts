@@ -227,11 +227,11 @@ router.post("/orders/create", async (req: Request, res: Response) => {
           product.network
         );
         
-        if (result.success) {
+        if (result && result.success) {
           vendorOrderId = result.transactionId;
           console.log(`[${requestId}] Portal-02 order created: ${vendorOrderId}`);
         } else {
-          vendorError = result.error;
+          vendorError = result?.error || "Unknown Portal-02 error";
           console.log(`[${requestId}] Portal-02 order failed: ${vendorError}`);
         }
       } catch (err) {
