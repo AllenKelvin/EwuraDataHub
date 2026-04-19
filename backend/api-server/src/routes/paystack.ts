@@ -53,9 +53,9 @@ router.post("/webhook", async (req: Request, res: Response) => {
               return res.status(200).json({ received: true });
             }
             
-            const vendorProductId = product.vendorProductId;
+            const vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
             
-            if (vendorProductId && validatePhoneNumber(order.recipientPhone)) {
+            if (validatePhoneNumber(order.recipientPhone)) {
               const formattedPhone = formatPhoneNumber(order.recipientPhone);
               req.log.info(`[Paystack Webhook] Calling Portal-02 for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
               
@@ -68,23 +68,22 @@ router.post("/webhook", async (req: Request, res: Response) => {
               if (result && result.success) {
                 order.vendorOrderId = result.transactionId;
                 order.vendorProductId = vendorProductId;
-                order.vendorStatus = "pending";
+                order.vendorStatus = result.status || "pending";
                 order.status = "processing";
                 req.log.info(`✅ [Paystack Webhook] Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
               } else {
                 req.log.warn(`❌ [Paystack Webhook] Portal-02 API failed: ${result?.error || "Unknown error"}`);
-                order.status = "completed";
+                // Keep order as pending if Portal-02 fails, don't mark as completed
+                order.status = "pending";
               }
-            } else if (!vendorProductId) {
-              req.log.warn(`[Paystack Webhook] Cannot call Portal-02: Product ${order.productId} does not have vendorProductId`);
-              order.status = "completed";
             } else {
               req.log.warn(`[Paystack Webhook] Invalid phone number: ${order.recipientPhone}`);
-              order.status = "completed";
+              order.status = "pending";
             }
           } catch (vendorErr) {
             req.log.warn({ err: vendorErr }, `[Paystack Webhook] Portal-02 call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-            order.status = "completed";
+            // Keep order as pending if Portal-02 call fails
+            order.status = "pending";
           }
         } else {
           // Mark as completed if it's a wallet fund or no product
