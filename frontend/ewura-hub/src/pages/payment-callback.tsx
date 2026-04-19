@@ -2,18 +2,31 @@ import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function PaymentCallback() {
   const [, navigate] = useLocation();
   const search = useSearch();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [verifying, setVerifying] = useState(true);
   const [status, setStatus] = useState<"pending" | "success" | "failed">("pending");
 
+  // On mount, refetch auth to restore session after Paystack redirect
   useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+  }, [queryClient]);
+
+  useEffect(() => {
+    // Don't start verification until auth is loaded
+    if (isLoading) {
+      return;
+    }
+
     const verifyPayment = async () => {
       try {
         // Get reference from query params - Paystack returns reference parameter
@@ -51,9 +64,9 @@ export default function PaymentCallback() {
             description: `Your order for ${data.order?.productName} has been confirmed.`,
           });
 
-          // Redirect to dashboard/orders after 3 seconds
+          // Redirect to dashboard after 3 seconds to see new order
           setTimeout(() => {
-            navigate("/orders");
+            navigate("/dashboard");
           }, 3000);
         } else {
           setStatus("failed");
@@ -77,7 +90,23 @@ export default function PaymentCallback() {
     };
 
     verifyPayment();
-  }, [search, navigate, toast]);
+  }, [search, navigate, toast, isLoading]);
+
+  // Show loading while auth is being restored after Paystack redirect
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            </div>
+          </div>
+          <p className="text-muted-foreground">Restoring session...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
