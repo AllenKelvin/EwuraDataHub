@@ -41,6 +41,7 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       userId: user._id,
       username: user.username,
       vendorOrderId: result.transactionId,
+      vendorReference: result.reference, // Store reference for webhook lookup
       vendorProductId: `${network}_${bundleSize}`,
       vendorPhoneNumber: phoneNumber,
       network,
@@ -52,6 +53,7 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       paymentMethod: "wallet",
       paymentReference: result.reference,
       vendorStatus: result.status,
+      webhookHistory: [], // Initialize empty webhook history
     });
 
     await order.save();
@@ -168,35 +170,61 @@ router.post("/webhook", async (req: Request, res: Response) => {
       return res.status(200).json({ received: true, status: "invalid_payload" });
     }
 
-    const { orderId, status } = webhookResult;
+    const { orderId, reference, status } = webhookResult;
     
-    if (webhookResult.event === "order.status.updated" || webhookResult.event === "order.status_update") {
-      // Find order by vendor order ID
-      const order = await Order.findOne({ vendorOrderId: orderId });
+    if (webhookResult.event === "order.status.updated" || webhookResult.event === "order.status_update" || webhookResult.event === "order.updated" || webhookResult.event === "status.updated") {
+      // Find order using multiple lookup strategies (in order of priority)
+      let order = null;
+      const lookupStrategies = [
+        { vendorOrderId: orderId },                    // Primary: by vendor order ID
+        { vendorReference: reference },               // Secondary: by vendor reference
+        { paymentReference: reference },              // Tertiary: by payment reference
+        { vendorOrderId: reference },                 // Fallback: reference might be the orderId
+      ];
+
+      for (const query of lookupStrategies) {
+        order = await Order.findOne(query);
+        if (order) {
+          req.log.info(`[Portal-02 Webhook] Order found using strategy: ${JSON.stringify(query)}`);
+          break;
+        }
+      }
 
       if (order) {
         const oldStatus = order.vendorStatus;
-        // Update order status
-        order.vendorStatus = status;
-
-        if (status === "delivered" || status === "completed") {
+        
+        // Map Portal-02 statuses to internal statuses
+        if (status === "delivered" || status === "resolved") {
           order.status = "completed";
+          order.vendorStatus = "completed";
           req.log.info(`✅ [Portal-02 Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
         } else if (status === "failed" || status === "cancelled" || status === "refunded") {
           order.status = "failed";
+          order.vendorStatus = "failed";
           req.log.error(`❌ [Portal-02 Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
         } else if (status === "processing") {
           order.status = "processing";
+          order.vendorStatus = "processing";
           req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
         } else if (status === "pending") {
           order.status = "processing"; // Map pending to processing for better UX
+          order.vendorStatus = "pending";
           req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} pending. Vendor ID: ${orderId}`);
         }
+
+        // Record webhook in history
+        if (!order.webhookHistory) order.webhookHistory = [];
+        order.webhookHistory.push({
+          status,
+          timestamp: webhookResult.timestamp,
+          rawPayload: rawPayload,
+        });
 
         await order.save();
         req.log.info(`[Portal-02 Webhook] Order ${order._id} updated: ${oldStatus} → ${status}`);
       } else {
-        req.log.warn(`[Portal-02 Webhook] ⚠️ No local order found for vendor order: ${orderId}`);
+        req.log.warn(`[Portal-02 Webhook] ⚠️ No local order found for vendor order: ${orderId}. Reference: ${reference}. Tried lookups: ${JSON.stringify(lookupStrategies)}`);
+        req.log.warn(`[Portal-02 Webhook] Webhook payload for debugging:`, rawPayload);
       }
     } else {
       req.log.warn(`[Portal-02 Webhook] Unknown event type: ${webhookResult.event}`);

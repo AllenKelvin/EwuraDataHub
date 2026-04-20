@@ -119,6 +119,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
               
               if (result && result.success) {
                 order.vendorOrderId = result.transactionId;
+                order.vendorReference = result.reference; // Store reference for webhook lookup
                 order.vendorProductId = vendorProductId;
                 order.vendorStatus = result.status || "pending";
                 order.status = "processing";

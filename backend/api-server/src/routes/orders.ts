@@ -94,6 +94,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     // ===== FOR WALLET: CALL PORTAL-02 IMMEDIATELY =====
     // ===== FOR PAYSTACK: WAIT FOR WEBHOOK CONFIRMATION =====
     let vendorOrderId: string | undefined;
+    let vendorReference: string | undefined;
     let vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
     let vendorError: string | undefined;
 
@@ -118,6 +119,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         
         if (result.success) {
           vendorOrderId = result.transactionId;
+          vendorReference = result.reference;
           req.log.info(`✅ [Portal-02] Order created successfully. Vendor ID: ${vendorOrderId}`);
         } else {
           vendorError = result?.error || "Unknown Portal-02 error";
@@ -166,8 +168,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         paymentReference: reference,
         idempotencyKey,
         vendorOrderId,
+        vendorReference,
         vendorProductId,
         vendorStatus: vendorOrderId ? "pending" : undefined,
+        webhookHistory: [],
       });
       await order.save();
 

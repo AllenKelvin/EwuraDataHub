@@ -220,6 +220,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
             
             if (result && result.success) {
               order.vendorOrderId = result.transactionId;
+              order.vendorReference = result.reference; // Store reference for webhook lookup
               order.vendorProductId = vendorProductId;
               order.vendorStatus = result.status || "pending";
               order.status = "processing";
@@ -355,8 +356,9 @@ router.post("/webhook", async (req: Request, res: Response) => {
               
               if (result && result.success) {
                 order.vendorOrderId = result.transactionId;
+                order.vendorReference = result.reference; // Store reference for webhook lookup
                 order.vendorProductId = vendorProductId;
-                order.vendorStatus = "pending";
+                order.vendorStatus = result.status || "pending";
                 order.status = "processing";
                 req.log.info(`✅ [Paystack Webhook] Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
               } else {

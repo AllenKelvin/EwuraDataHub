@@ -17,10 +17,16 @@ const OrderSchema = new mongoose.Schema({
   idempotencyKey: { type: String, index: true },
   
   // Vendor integration fields
-  vendorOrderId: { type: String },
+  vendorOrderId: { type: String, index: true },
+  vendorReference: { type: String, index: true }, // Reference returned by vendor
   vendorProductId: { type: String },
   vendorPhoneNumber: { type: String },
   vendorStatus: { type: String, enum: ["pending", "processing", "completed", "failed"] },
+  webhookHistory: [{ // Track all webhook updates
+    status: String,
+    timestamp: { type: Date, default: Date.now },
+    rawPayload: mongoose.Schema.Types.Mixed,
+  }],
 }, { timestamps: true });
 
 export interface IOrder {
@@ -38,9 +44,15 @@ export interface IOrder {
   paymentReference?: string;
   idempotencyKey?: string;
   vendorOrderId?: string;
+  vendorReference?: string; // Reference returned by vendor
   vendorProductId?: string;
   vendorPhoneNumber?: string;
   vendorStatus?: "pending" | "processing" | "completed" | "failed";
+  webhookHistory?: Array<{
+    status: string;
+    timestamp: Date;
+    rawPayload?: Record<string, any>;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
