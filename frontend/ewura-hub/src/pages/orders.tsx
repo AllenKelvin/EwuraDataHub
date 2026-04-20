@@ -167,7 +167,7 @@ export default function Orders() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
-                            <Icon className="h-3 w-3" />
+                            <Icon className={`h-3 w-3 ${order.status === "pending" || order.status === "processing" ? "animate-spin" : ""}`} />
                             {st.label}
                           </span>
                         </td>
@@ -219,7 +219,7 @@ export default function Orders() {
                         </div>
                         <div className="flex items-center gap-1">
                           <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
-                            <Icon className="h-3 w-3" />
+                            <Icon className={`h-3 w-3 ${order.status === "pending" || order.status === "processing" ? "animate-spin" : ""}`} />
                             {st.label}
                           </span>
                           <DropdownMenu>

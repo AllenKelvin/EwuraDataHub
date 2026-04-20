@@ -22,17 +22,30 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    if (!/^\d{10}$/.test(phone)) {
-      return res.status(400).json({ error: "Phone number must be exactly 10 digits" });
+    // Normalize phone number - accept various formats
+    let normalizedPhone = String(phone).trim();
+    
+    // Remove country code if present
+    if (normalizedPhone.startsWith("+233")) {
+      normalizedPhone = "0" + normalizedPhone.substring(4);
+    } else if (normalizedPhone.startsWith("233")) {
+      normalizedPhone = "0" + normalizedPhone.substring(3);
+    }
+    
+    // Validate format: must be 10 digits starting with 0
+    if (!/^0\d{9}$/.test(normalizedPhone)) {
+      return res.status(400).json({ 
+        error: "Phone number must be valid Ghana format (e.g., 0541234567 or +233541234567)" 
+      });
     }
 
-    const existing = await User.findOne({ $or: [{ email }, { username }, { phone }] });
+    const existing = await User.findOne({ $or: [{ email }, { username }, { phone: normalizedPhone }] });
     if (existing) {
       return res.status(400).json({ error: "Username, email, or phone already in use" });
     }
 
     const userRole = role === "agent" ? "agent" : "user";
-    const user = new User({ username, email, phone, password, role: userRole });
+    const user = new User({ username, email, phone: normalizedPhone, password, role: userRole });
     await user.save();
 
     req.session.userId = user._id.toString();
@@ -76,9 +89,18 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing credentials" });
     }
 
+    // Normalize phone number if provided in different format
+    let normalizedPhone = String(emailOrPhone).trim();
+    if (normalizedPhone.startsWith("+233")) {
+      normalizedPhone = "0" + normalizedPhone.substring(4);
+    } else if (normalizedPhone.startsWith("233")) {
+      normalizedPhone = "0" + normalizedPhone.substring(3);
+    }
+
     const user = await User.findOne({
       $or: [
         { email: emailOrPhone.toLowerCase() },
+        { phone: normalizedPhone },
         { phone: emailOrPhone },
         { username: emailOrPhone },
       ],

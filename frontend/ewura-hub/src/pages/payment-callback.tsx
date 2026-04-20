@@ -59,14 +59,28 @@ export default function PaymentCallback() {
 
         if (data.status === "success") {
           setStatus("success");
+          
+          // Invalidate both wallet and orders queries to refresh data
+          queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+          
+          // Get the product name to determine redirect destination
+          const isWalletFund = !data.order?.productName;
+          
           toast({
             title: "✓ Payment Successful!",
-            description: `Your order for ${data.order?.productName} has been confirmed.`,
+            description: isWalletFund 
+              ? "Your wallet has been funded successfully!"
+              : `Your order for ${data.order?.productName} has been confirmed.`,
           });
 
-          // Redirect to dashboard after 3 seconds to see new order
+          // Redirect to appropriate page after 3 seconds
           setTimeout(() => {
-            navigate("/dashboard");
+            if (isWalletFund) {
+              navigate("/wallet");
+            } else {
+              navigate("/orders");
+            }
           }, 3000);
         } else {
           setStatus("failed");

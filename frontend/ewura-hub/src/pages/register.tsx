@@ -130,10 +130,18 @@ export default function Register() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs font-semibold text-foreground/70">Phone (10 digits)</FormLabel>
+                        <FormLabel className="text-xs font-semibold text-foreground/70">Phone</FormLabel>
                         <FormControl>
-                          <Input data-testid="input-phone" placeholder="0244123456" maxLength={10} className="h-10" {...field} />
+                          <Input 
+                            data-testid="input-phone" 
+                            placeholder="0541234567" 
+                            maxLength={13}
+                            type="tel"
+                            className="h-10" 
+                            {...field} 
+                          />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground/70">Format: 0541234567 or +233541234567</p>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}

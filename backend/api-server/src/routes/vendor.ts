@@ -159,15 +159,18 @@ router.post("/webhook", async (req: Request, res: Response) => {
         // Update order status
         order.vendorStatus = status;
 
-        if (status === "completed") {
+        if (status === "delivered" || status === "completed") {
           order.status = "completed";
           req.log.info(`✅ [Portal-02 Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
-        } else if (status === "failed") {
+        } else if (status === "failed" || status === "cancelled" || status === "refunded") {
           order.status = "failed";
-          req.log.error(`❌ [Portal-02 Webhook] Order ${order._id} failed. Vendor ID: ${orderId}`);
+          req.log.error(`❌ [Portal-02 Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
         } else if (status === "processing") {
           order.status = "processing";
           req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
+        } else if (status === "pending") {
+          order.status = "processing"; // Map pending to processing for better UX
+          req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} pending. Vendor ID: ${orderId}`);
         }
 
         await order.save();

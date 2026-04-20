@@ -122,7 +122,7 @@ export default function AdminOrders() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>
-                            <Icon className="h-3 w-3" />
+                            <Icon className={`h-3 w-3 ${order.status === "pending" || order.status === "processing" ? "animate-spin" : ""}`} />
                             {st.label}
                           </span>
                         </td>
