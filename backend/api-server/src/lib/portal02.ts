@@ -175,7 +175,7 @@ function mapNetworkToEndpoint(network: string): string {
  */
 class Portal02Service {
   constructor() {
-    console.log(`[Portal02] Initialized. Base: ${BASE_URL}, Webhook: ${BACKEND_URL}/api/webhooks/portal02`);
+    console.log(`[Portal02] Initialized. Base: ${BASE_URL}, Webhook: ${BACKEND_URL}/api/vendor/webhook`);
   }
 
   /**
@@ -212,7 +212,7 @@ class Portal02Service {
       }
 
       const offerSlug = getOfferSlug(network);
-      const webhookUrl = `${BACKEND_URL}/api/webhooks/portal02`;
+      const webhookUrl = `${BACKEND_URL}/api/vendor/webhook`;
       const payload: Record<string, unknown> = {
         type: "single",
         volume,

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useGetOrders, getGetOrdersQueryKey } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ShoppingBag, CheckCircle, XCircle, Clock, MoreVertical } from "lucide-react";
-import FloatingChat from "@/components/FloatingChat";
 import OrderComplaintDialog from "@/components/OrderComplaintDialog";
 import {
   DropdownMenu,
@@ -69,9 +68,6 @@ export default function Orders() {
         <h1 className="text-2xl font-black text-foreground">My Orders</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Your complete order history</p>
       </div>
-
-      {/* Floating Chat */}
-      <FloatingChat />
 
       {/* Complaint Dialog */}
       {selectedOrderForComplaint && (

@@ -300,44 +300,21 @@ router.post("/:id/sync", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Only sync if there's a vendor order ID
-    if (!order.vendorOrderId || !vendorClient) {
+    // Vendor status is updated via Portal-02 webhook
+    // This endpoint just returns the current order status
+    if (!order.vendorOrderId) {
+      req.log.info(`Order has no vendor order ID. Order ID: ${order._id}`);
       return res.json({
-        message: "No vendor order to sync",
+        message: "Order has no vendor order to sync",
         order: formatOrder(order),
       });
     }
 
-    try {
-      // Get vendor order details
-      const vendorOrder = await vendorClient.getOrderDetails(order.vendorOrderId);
-      
-      // Map vendor status to our status
-      const vendorStatus = vendorOrder.order.status;
-      if (vendorStatus === "completed") {
-        order.status = "completed";
-        order.vendorStatus = vendorStatus;
-      } else if (vendorStatus === "processing") {
-        order.status = "processing";
-        order.vendorStatus = vendorStatus;
-      } else if (vendorStatus === "failed") {
-        order.status = "failed";
-        order.vendorStatus = vendorStatus;
-      }
-
-      await order.save();
-      req.log.info(`Order synced with vendor. Order ID: ${order._id}, Vendor Status: ${vendorStatus}`);
-
-      return res.json({
-        message: "Order synced successfully",
-        order: formatOrder(order),
-      });
-    } catch (vendorErr) {
-      req.log.warn({ err: vendorErr }, `Failed to sync with vendor: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-      return res.status(500).json({
-        error: "Failed to sync with vendor",
-      });
-    }
+    req.log.info(`Order status query. Order ID: ${order._id}, Status: ${order.status}, Vendor Status: ${order.vendorStatus}`);
+    return res.json({
+      message: "Vendor status (updated via webhook)",
+      order: formatOrder(order),
+    });
   } catch (err) {
     req.log.error({ err }, "Sync order error");
     return res.status(500).json({ error: "Server error" });

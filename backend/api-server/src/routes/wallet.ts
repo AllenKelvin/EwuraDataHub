@@ -29,6 +29,11 @@ router.post("/fund", requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
+    // Add 4% admin fee on top of requested amount
+    const ADMIN_FEE_PERCENTAGE = 0.04;
+    const adminFee = amount * ADMIN_FEE_PERCENTAGE;
+    const totalChargeAmount = amount + adminFee;
+
     const reference = `WALLET-FUND-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
@@ -44,12 +49,14 @@ router.post("/fund", requireAuth, async (req: Request, res: Response) => {
       },
       body: JSON.stringify({
         email: user.email,
-        amount: Math.round(amount * 100),
+        amount: Math.round(totalChargeAmount * 100),
         reference,
         metadata: {
           type: "wallet_fund",
           userId: user._id.toString(),
-          amount,
+          amount, // amount to credit to wallet (without admin fee)
+          adminFee, // 4% fee charged
+          totalChargeAmount, // total amount charged via Paystack
         },
       }),
     });
@@ -63,6 +70,9 @@ router.post("/fund", requireAuth, async (req: Request, res: Response) => {
       authorizationUrl: data.data.authorization_url,
       accessCode: data.data.access_code,
       reference: data.data.reference,
+      amount, // return original amount for UI display
+      adminFee, // return fee amount for UI display
+      totalChargeAmount, // return total charge for UI display
     });
   } catch (err) {
     req.log.error({ err }, "Fund wallet error");

@@ -77,12 +77,58 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
     // Check if order already exists
     let order = await Order.findOne({ paymentReference: reference });
     
+    const metadata = data.data.metadata;
+    
+    // Handle wallet fund transactions (no Order created for these)
+    if (metadata?.type === "wallet_fund") {
+      const amount = metadata.amount; // Use metadata amount (without 4% fee)
+      const userId = metadata.userId;
+      const adminFee = metadata.adminFee;
+      const totalCharged = metadata.totalChargeAmount;
+      
+      req.log.info(`Payment verification: Processing wallet fund: ${amount} (with ${adminFee} admin fee, total: ${totalCharged}) for user ${userId}`);
+      
+      try {
+        await User.findByIdAndUpdate(userId, {
+          $inc: { walletBalance: amount, totalFunded: amount },
+        });
+        
+        // Check if transaction already exists to prevent duplicates
+        const existingTx = await WalletTransaction.findOne({ reference });
+        if (!existingTx) {
+          await WalletTransaction.create({
+            userId,
+            type: "credit",
+            amount,
+            description: `Wallet funded via Paystack (4% fee: ${adminFee})`,
+            reference,
+          });
+        }
+        
+        req.log.info(`✅ Payment verification: Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee})`);
+        return res.json({
+          status: "success",
+          message: "Wallet funded successfully",
+          wallet: {
+            userId,
+            amount,
+            adminFee,
+            totalCharged,
+            type: "credit",
+            reference,
+          },
+        });
+      } catch (walletErr) {
+        req.log.error({ err: walletErr }, `Payment verification: Wallet fund failed`);
+        return res.json({ status: "failed", message: "Wallet fund failed" });
+      }
+    }
+    
     if (!order) {
       // Order doesn't exist - create it from Paystack metadata
       req.log.info(`Payment verification: Creating order from Paystack metadata. Reference: ${reference}`);
       
       try {
-        const metadata = data.data.metadata;
         const userId = metadata?.userId || user._id.toString();
         const productId = metadata?.productId;
         const recipientPhone = metadata?.recipientPhone;
@@ -241,8 +287,40 @@ router.post("/webhook", async (req: Request, res: Response) => {
 
     if (event.event === "charge.success") {
       const reference = event.data.reference;
+      const metadata = event.data.metadata;
       req.log.info(`[Paystack Webhook] Processing charge.success for reference: ${reference}`);
       
+      // Handle wallet fund transactions (no Order created for these)
+      if (metadata?.type === "wallet_fund") {
+        const amount = metadata.amount; // Use metadata amount (without 4% fee)
+        const userId = metadata.userId;
+        const adminFee = metadata.adminFee;
+        const totalCharged = metadata.totalChargeAmount;
+        
+        req.log.info(`[Paystack Webhook] Processing wallet fund: ${amount} (with ${adminFee} admin fee, total: ${totalCharged}) for user ${userId}`);
+        
+        try {
+          await User.findByIdAndUpdate(userId, {
+            $inc: { walletBalance: amount, totalFunded: amount },
+          });
+          
+          await WalletTransaction.create({
+            userId,
+            type: "credit",
+            amount,
+            description: `Wallet funded via Paystack (4% fee: ${adminFee})`,
+            reference,
+          });
+          
+          req.log.info(`✅ [Paystack Webhook] Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee})`);
+          return res.status(200).json({ received: true });
+        } catch (walletErr) {
+          req.log.error({ err: walletErr }, `[Paystack Webhook] Wallet fund failed`);
+          return res.status(200).json({ received: true });
+        }
+      }
+      
+      // Handle product orders
       const order = await Order.findOne({ paymentReference: reference });
       if (!order) {
         req.log.warn(`[Paystack Webhook] No order found for reference: ${reference}`);
@@ -308,20 +386,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
         req.log.warn(`[Paystack Webhook] Order already processed. Current status: ${order.status}`);
       }
 
-      const metadata = event.data.metadata;
-      if (metadata?.type === "wallet_fund") {
-        const amount = Number(event.data.amount) / 100;
-        await User.findByIdAndUpdate(metadata.userId, {
-          $inc: { walletBalance: amount, totalFunded: amount },
-        });
-        await WalletTransaction.create({
-          userId: metadata.userId,
-          type: "credit",
-          amount,
-          description: "Wallet funded via Paystack",
-          reference,
-        });
-      }
+      return res.json({ received: true });
     }
 
     return res.json({ received: true });

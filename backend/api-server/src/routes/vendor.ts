@@ -112,25 +112,39 @@ router.get("/orders", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/vendor/orders/:vendorOrderId
- * Get specific vendor order details
+ * Get specific vendor order details from local database
  */
 router.get("/orders/:vendorOrderId", requireAuth, async (req: Request, res: Response) => {
   try {
-    if (!vendorClient) {
-      return res.status(503).json({ error: "Vendor service not configured" });
-    }
-
+    const user = (req as any).user;
     const { vendorOrderId } = req.params;
-    const vendorOrder = await vendorClient.getOrderDetails(vendorOrderId);
 
-    return res.json(vendorOrder);
-  } catch (err) {
-    req.log.error({ err }, "Get vendor order details error");
+    // Query the order from database
+    const order = await Order.findOne({ 
+      vendorOrderId,
+      userId: user._id 
+    });
 
-    if (err instanceof Error && err.message.includes("404")) {
+    if (!order) {
       return res.status(404).json({ error: "Vendor order not found" });
     }
 
+    return res.json({
+      vendorOrderId: order.vendorOrderId,
+      orderId: order._id.toString(),
+      status: order.status,
+      vendorStatus: order.vendorStatus,
+      network: order.network,
+      type: order.type,
+      productName: order.productName,
+      recipientPhone: order.recipientPhone,
+      amount: order.amount,
+      paymentMethod: order.paymentMethod,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Get vendor order details error");
     return res.status(500).json({
       error: err instanceof Error ? err.message : "Failed to fetch vendor order",
     });
@@ -143,14 +157,20 @@ router.get("/orders/:vendorOrderId", requireAuth, async (req: Request, res: Resp
  */
 router.post("/webhook", async (req: Request, res: Response) => {
   try {
-    const { event, orderId, status, details } = req.body;
+    const rawPayload = req.body;
+    req.log.info({ payload: rawPayload }, "🔔 Portal-02 webhook received (raw)");
 
-    req.log.info(
-      { event, orderId, status, details },
-      "🔔 Portal-02 webhook received"
-    );
+    // Process and validate webhook payload using portal02Service
+    const webhookResult = portal02Service.processWebhookPayload(rawPayload);
+    
+    if (!webhookResult.success) {
+      req.log.warn(`[Portal-02 Webhook] Invalid payload: ${webhookResult.error}`);
+      return res.status(200).json({ received: true, status: "invalid_payload" });
+    }
 
-    if (event === "order.status_updated") {
+    const { orderId, status } = webhookResult;
+    
+    if (webhookResult.event === "order.status.updated" || webhookResult.event === "order.status_update") {
       // Find order by vendor order ID
       const order = await Order.findOne({ vendorOrderId: orderId });
 
@@ -179,7 +199,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
         req.log.warn(`[Portal-02 Webhook] ⚠️ No local order found for vendor order: ${orderId}`);
       }
     } else {
-      req.log.warn(`[Portal-02 Webhook] Unknown event type: ${event}`);
+      req.log.warn(`[Portal-02 Webhook] Unknown event type: ${webhookResult.event}`);
     }
 
     // Always respond with 200 to acknowledge receipt

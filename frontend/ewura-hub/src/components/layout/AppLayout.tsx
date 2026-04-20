@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import FloatingChat from "@/components/FloatingChat";
 
 interface NavItem {
   label: string;
@@ -241,6 +242,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Floating Chat Widget */}
+      <FloatingChat />
     </div>
   );
 }
