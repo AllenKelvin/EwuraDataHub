@@ -93,42 +93,51 @@ export default function Cart() {
       { productId: item.productId, recipientPhone: item.recipientPhone, paymentMethod },
       {
         onSuccess: (res) => {
-          console.log('Order created successfully:', res);
+          console.log('Payment initialization response:', res);
           
-          // Invalidate ALL order queries regardless of pagination
-          // Query key format: ["/api/orders", { limit: X, page: Y }]
-          queryClient.invalidateQueries({ 
-            queryKey: ["/api/orders"] 
-          });
-          
-          if (isAgent && paymentMethod === "wallet") {
-            // Query key format: ["/api/wallet"] - no params
+          // For Paystack: redirect to payment (order will be created after payment confirmation)
+          // For Wallet: order was created immediately, so refresh queries
+          if (paymentMethod === "wallet") {
+            // Order created immediately for wallet payment, invalidate orders query
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/orders"] 
+            });
+            
+            // Invalidate wallet balance
             queryClient.invalidateQueries({ 
               queryKey: ["/api/wallet"]
             });
-          }
-          
-          if (res.paymentUrl) {
+            
+            toast({ 
+              title: "✓ Order placed successfully!", 
+              description: res.message || "Your order has been processed" 
+            });
+            clearCart();
+            
+            // Navigate to dashboard to show the new order
+            setTimeout(() => {
+              navigate("/dashboard");
+            }, 1500);
+          } else if (paymentMethod === "paystack" && res.paymentUrl) {
+            // For Paystack: redirect to payment
+            // Order will be created after payment is confirmed via webhook or callback verification
             toast({ 
               title: "Redirecting to Paystack", 
-              description: "You will be redirected to complete your payment" 
+              description: "Complete your payment to create the order" 
             });
+            clearCart();
+            
             // Give toast time to show before redirect to Paystack
             setTimeout(() => {
               window.location.href = res.paymentUrl;
             }, 800);
           } else {
-            // Order created but no payment URL (wallet payment or Paystack not configured)
+            // Unexpected response
             toast({ 
-              title: "✓ Order placed successfully!", 
-              description: res.message || "Your order has been saved and will be processed" 
+              title: "Error", 
+              description: "Unexpected response from server",
+              variant: "destructive"
             });
-            clearCart();
-            
-            // Navigate to dashboard to show the new order (React navigation, not full reload)
-            setTimeout(() => {
-              navigate("/dashboard");
-            }, 1500);
           }
         },
         onError: (err: any) => {

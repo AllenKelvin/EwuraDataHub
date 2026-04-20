@@ -45,8 +45,24 @@ export default function Register() {
         setLocation(res.user.role === "admin" ? "/admin" : "/dashboard");
       },
       onError: (err: any) => {
-        const msg = err?.response?.data?.error || "Registration failed";
-        toast({ title: "Error", description: msg, variant: "destructive" });
+        const errorCode = err?.response?.data?.code;
+        const errorMessage = err?.response?.data?.error;
+        let title = "Registration failed";
+        let description = errorMessage || "Unable to create account";
+
+        // Provide specific error messages based on error code
+        if (errorCode === "USERNAME_EXISTS") {
+          title = "Username already taken";
+          description = "This username is already in use. Please choose a different username.";
+        } else if (errorCode === "EMAIL_EXISTS") {
+          title = "Email already registered";
+          description = "This email is already associated with an account. Please use a different email or try logging in.";
+        } else if (errorCode === "PHONE_EXISTS") {
+          title = "Phone number already registered";
+          description = "This phone number is already associated with an account. Please use a different number or try logging in.";
+        }
+
+        toast({ title, description, variant: "destructive" });
       },
     });
   };

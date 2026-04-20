@@ -39,9 +39,20 @@ router.post("/register", async (req: Request, res: Response) => {
       });
     }
 
-    const existing = await User.findOne({ $or: [{ email }, { username }, { phone: normalizedPhone }] });
-    if (existing) {
-      return res.status(400).json({ error: "Username, email, or phone already in use" });
+    // Check for existing username, email, or phone with specific error messages
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ error: "Username already in use", code: "USERNAME_EXISTS" });
+    }
+
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(400).json({ error: "Email already in use", code: "EMAIL_EXISTS" });
+    }
+
+    const existingPhone = await User.findOne({ phone: normalizedPhone });
+    if (existingPhone) {
+      return res.status(400).json({ error: "Phone number already in use", code: "PHONE_EXISTS" });
     }
 
     const userRole = role === "agent" ? "agent" : "user";
@@ -107,13 +118,13 @@ router.post("/login", async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Username, email or phone not found. Please check and try again.", code: "USER_NOT_FOUND" });
     }
 
     const passwordCheck = await user.comparePassword(password);
     
     if (!passwordCheck.valid) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Password is incorrect. Please try again.", code: "INVALID_PASSWORD" });
     }
 
     // Password is valid

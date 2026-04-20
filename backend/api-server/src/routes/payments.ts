@@ -57,6 +57,7 @@ router.post("/initialize", requireAuth, async (req: Request, res: Response) => {
 router.get("/verify/:reference", requireAuth, async (req: Request, res: Response) => {
   try {
     const { reference } = req.params;
+    const user = (req as any).user;
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
     if (!paystackKey) {
@@ -73,67 +74,135 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
       return res.json({ status: "failed", message: "Payment not successful" });
     }
 
-    const order = await Order.findOne({ paymentReference: reference });
-    if (order && order.status === "pending") {
-      // Try to call vendor API if this is a product order (not wallet fund)
-      if (order.paymentMethod === "paystack" && !data.data.metadata?.type) {
+    // Check if order already exists
+    let order = await Order.findOne({ paymentReference: reference });
+    
+    if (!order) {
+      // Order doesn't exist - create it from Paystack metadata
+      req.log.info(`Payment verification: Creating order from Paystack metadata. Reference: ${reference}`);
+      
+      try {
+        const metadata = data.data.metadata;
+        const userId = metadata?.userId || user._id.toString();
+        const productId = metadata?.productId;
+        const recipientPhone = metadata?.recipientPhone;
+        const productName = metadata?.productName;
+        const username = metadata?.username || user.username;
+        const idempotencyKey = metadata?.idempotencyKey;
+
+        if (!productId || !recipientPhone) {
+          req.log.error(`Payment verification: Missing metadata for order creation`, { metadata });
+          return res.json({ status: "success", message: "Payment verified but order creation failed" });
+        }
+
+        const product = await Product.findById(productId);
+        if (!product) {
+          req.log.warn(`Payment verification: Product ${productId} not found`);
+          return res.json({ status: "success", message: "Payment verified but product not found" });
+        }
+
+        const amount = Number(data.data.amount) / 100;
+
+        // Create order
+        order = new Order({
+          userId,
+          username,
+          productId,
+          network: product.network,
+          type: product.type,
+          productName: product.name,
+          recipientPhone,
+          amount,
+          status: "pending",
+          paymentMethod: "paystack",
+          paymentReference: reference,
+          idempotencyKey,
+        });
+        await order.save();
+        req.log.info(`Payment verification: Order created successfully. Order ID: ${order._id}`);
+      } catch (createErr) {
+        req.log.error({ err: createErr }, `Payment verification: Failed to create order`);
+        return res.json({ status: "success", message: "Payment verified but order creation failed" });
+      }
+    }
+
+    // Update order status and call vendor if needed
+    if (order.status === "pending") {
+      req.log.info(`Payment verification: Order ${order._id} payment confirmed, processing...`);
+      
+      // Try to call vendor API if this is a product order
+      if (order.paymentMethod === "paystack" && order.productId) {
         try {
           const product = await Product.findById(order.productId);
-          const vendorProductId = product?.vendorProductId;
+          if (!product) {
+            req.log.warn(`Payment verification: Product ${order.productId} not found`);
+            order.status = "completed";
+            await order.save();
+            return res.json({
+              status: "success",
+              message: "Payment verified",
+              order: {
+                id: order._id.toString(),
+                userId: order.userId.toString(),
+                username: order.username,
+                network: order.network,
+                type: order.type,
+                productName: order.productName,
+                recipientPhone: order.recipientPhone,
+                amount: order.amount,
+                status: order.status,
+                paymentMethod: order.paymentMethod,
+                paymentReference: order.paymentReference,
+                vendorOrderId: order.vendorOrderId,
+                vendorStatus: order.vendorStatus,
+                createdAt: order.createdAt,
+              },
+            });
+          }
           
-          if (vendorProductId && validatePhoneNumber(order.recipientPhone)) {
+          const vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
+          
+          if (validatePhoneNumber(order.recipientPhone)) {
             const formattedPhone = formatPhoneNumber(order.recipientPhone);
-            req.log.info(`Calling Portal-02 for Paystack order. Product: ${order.productId}, Phone: ${order.recipientPhone} → ${formattedPhone}`);
+            req.log.info(`Payment verification: Calling Portal-02 for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
             
             const result = await portal02Service.purchaseDataBundle(
               formattedPhone,
-              product?.dataAmount,
-              product?.network
+              product.dataAmount,
+              product.network
             );
             
             if (result && result.success) {
               order.vendorOrderId = result.transactionId;
               order.vendorProductId = vendorProductId;
+              order.vendorStatus = result.status || "pending";
               order.status = "processing";
-              req.log.info(`Portal-02 order created successfully. Order ID: ${order.vendorOrderId}`);
+              req.log.info(`✅ Payment verification: Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
             } else {
-              req.log.warn(`Portal-02 API failed: ${result?.error || "Unknown error"}`);
-              order.status = "completed";
+              req.log.warn(`❌ Payment verification: Portal-02 API failed: ${result?.error || "Unknown error"}`);
+              // Mark order as failed when Portal-02 fails (e.g., no balance, invalid phone)
+              order.status = "failed";
             }
-          } else if (!vendorProductId) {
-            req.log.warn(`Cannot call Portal-02: Product ${order.productId} does not have vendorProductId`);
-            order.status = "completed";
+          } else {
+            req.log.warn(`Payment verification: Invalid phone number: ${order.recipientPhone}`);
+            order.status = "failed";
           }
         } catch (vendorErr) {
-          req.log.warn({ err: vendorErr }, `Portal-02 call failed for Paystack order: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-          order.status = "completed";
+          req.log.warn({ err: vendorErr }, `Payment verification: Portal-02 call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
+          // Mark order as failed if Portal-02 call fails
+          order.status = "failed";
         }
       } else {
         order.status = "completed";
       }
 
       await order.save();
-
-      const metadata = data.data.metadata;
-      if (metadata?.type === "wallet_fund") {
-        const amount = Number(data.data.amount) / 100;
-        await User.findByIdAndUpdate(metadata.userId, {
-          $inc: { walletBalance: amount, totalFunded: amount },
-        });
-        await WalletTransaction.create({
-          userId: metadata.userId,
-          type: "credit",
-          amount,
-          description: `Wallet funded via Paystack`,
-          reference,
-        });
-      }
     }
 
     return res.json({
       status: "success",
       message: "Payment verified",
-      order: order ? {
+      order: {
         id: order._id.toString(),
         userId: order.userId.toString(),
         username: order.username,
@@ -148,7 +217,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
         vendorOrderId: order.vendorOrderId,
         vendorStatus: order.vendorStatus,
         createdAt: order.createdAt,
-      } : undefined,
+      },
     });
   } catch (err) {
     req.log.error({ err }, "Verify payment error");

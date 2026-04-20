@@ -31,19 +31,71 @@ router.post("/webhook", async (req: Request, res: Response) => {
 
     if (event.event === "charge.success") {
       const reference = event.data.reference;
+      const metadata = event.data.metadata;
       req.log.info(`[Paystack Webhook] Processing charge.success for reference: ${reference}`);
       
-      const order = await Order.findOne({ paymentReference: reference });
+      // Check for existing order using idempotency key from metadata
+      const idempotencyKey = metadata?.idempotencyKey;
+      let order = await Order.findOne({ idempotencyKey, paymentMethod: "paystack" });
+      
+      if (!order && idempotencyKey) {
+        // Order doesn't exist yet - create it from metadata (first time payment confirmed)
+        req.log.info(`[Paystack Webhook] Creating order from payment metadata. Reference: ${reference}`);
+        
+        try {
+          const userId = metadata?.userId;
+          const username = metadata?.username;
+          const productId = metadata?.productId;
+          const recipientPhone = metadata?.recipientPhone;
+          const productName = metadata?.productName;
+
+          if (!userId || !productId || !recipientPhone) {
+            req.log.error(`[Paystack Webhook] Missing required metadata for order creation`, { metadata });
+            return res.status(200).json({ received: true });
+          }
+
+          const product = await Product.findById(productId);
+          if (!product) {
+            req.log.warn(`[Paystack Webhook] Product ${productId} not found, cannot create order`);
+            return res.status(200).json({ received: true });
+          }
+
+          const amount = Number(event.data.amount) / 100;
+
+          // Create order with status "pending"
+          order = new Order({
+            userId,
+            username,
+            productId,
+            network: product.network,
+            type: product.type,
+            productName: product.name,
+            recipientPhone,
+            amount,
+            status: "pending",
+            paymentMethod: "paystack",
+            paymentReference: reference,
+            idempotencyKey,
+          });
+          await order.save();
+          req.log.info(`[Paystack Webhook] Order created successfully. Order ID: ${order._id}`);
+        } catch (createErr) {
+          req.log.error({ err: createErr }, `[Paystack Webhook] Failed to create order from metadata`);
+          return res.status(200).json({ received: true });
+        }
+      }
+      
       if (!order) {
         req.log.warn(`[Paystack Webhook] No order found for reference: ${reference}`);
         return res.status(200).json({ received: true });
       }
-      
+
+      // Update order status and call vendor if needed
       if (order.status === "pending") {
-        req.log.info(`[Paystack Webhook] Order ${order._id} payment confirmed, calling Portal-02...`);
+        req.log.info(`[Paystack Webhook] Order ${order._id} payment confirmed, processing order...`);
         
-        // Try to call vendor API if this is a product order (not wallet fund)
-        if (order.paymentMethod === "paystack" && !event.data.metadata?.type) {
+        // Try to call vendor API if this is a product order
+        if (order.paymentMethod === "paystack" && order.productId) {
           try {
             const product = await Product.findById(order.productId);
             if (!product) {
@@ -73,20 +125,20 @@ router.post("/webhook", async (req: Request, res: Response) => {
                 req.log.info(`✅ [Paystack Webhook] Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
               } else {
                 req.log.warn(`❌ [Paystack Webhook] Portal-02 API failed: ${result?.error || "Unknown error"}`);
-                // Keep order as pending if Portal-02 fails, don't mark as completed
-                order.status = "pending";
+                // Mark order as failed when Portal-02 fails (e.g., no balance, invalid phone)
+                order.status = "failed";
               }
             } else {
               req.log.warn(`[Paystack Webhook] Invalid phone number: ${order.recipientPhone}`);
-              order.status = "pending";
+              order.status = "failed";
             }
           } catch (vendorErr) {
             req.log.warn({ err: vendorErr }, `[Paystack Webhook] Portal-02 call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-            // Keep order as pending if Portal-02 call fails
-            order.status = "pending";
+            // Mark order as failed if Portal-02 call fails
+            order.status = "failed";
           }
         } else {
-          // Mark as completed if it's a wallet fund or no product
+          // Non-product order (wallet fund) - mark as completed
           req.log.info(`[Paystack Webhook] Non-product order, marking as completed`);
           order.status = "completed";
         }
@@ -95,21 +147,6 @@ router.post("/webhook", async (req: Request, res: Response) => {
         req.log.info(`[Paystack Webhook] Order ${order._id} saved with status: ${order.status}`);
       } else {
         req.log.warn(`[Paystack Webhook] Order already processed. Current status: ${order.status}`);
-      }
-
-      const metadata = event.data.metadata;
-      if (metadata?.type === "wallet_fund") {
-        const amount = Number(event.data.amount) / 100;
-        await User.findByIdAndUpdate(metadata.userId, {
-          $inc: { walletBalance: amount, totalFunded: amount },
-        });
-        await WalletTransaction.create({
-          userId: metadata.userId,
-          type: "credit",
-          amount,
-          description: "Wallet funded via Paystack",
-          reference,
-        });
       }
     }
 

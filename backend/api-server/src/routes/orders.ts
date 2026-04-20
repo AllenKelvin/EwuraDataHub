@@ -193,25 +193,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     // ===== PAYSTACK PAYMENT FLOW =====
-    // Portal-02 will be called in the Paystack webhook after payment is confirmed
+    // IMPORTANT: For Paystack, we DO NOT create the order until payment is confirmed
+    // This prevents orders from appearing as placed before payment is actually made
+    // The order will be created when the Paystack webhook confirms payment
     const reference = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const order = new Order({
-      userId: user._id,
-      username: user.username,
-      productId,
-      network: product.network,
-      type: product.type,
-      productName: product.name,
-      recipientPhone,
-      amount: price,
-      status: "pending",  // Will stay pending until Paystack webhook confirms payment
-      paymentMethod: "paystack",
-      paymentReference: reference,
-      idempotencyKey,
-      // DO NOT set vendorOrderId/vendorProductId yet - wait for webhook
-    });
-    await order.save();
-    req.log.info(`Order created with pending payment. Order ID: ${order._id}, Reference: ${reference}${vendorOrderId ? `, Vendor Order ID: ${vendorOrderId}` : ""}`);
 
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
     let paymentUrl: string | undefined;
@@ -229,14 +214,23 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
             email: user.email,
             amount: Math.round(price * 100),
             reference,
-            metadata: { orderId: order._id.toString(), productName: product.name },
+            // Store order metadata in Paystack for webhook to use when creating order
+            metadata: { 
+              userId: user._id.toString(),
+              username: user.username,
+              productId,
+              recipientPhone,
+              paymentMethod: "paystack",
+              idempotencyKey,
+              productName: product.name,
+            },
           }),
         });
 
         const paystackData = await paystackRes.json() as any;
         if (paystackData.status && paystackData.data?.authorization_url) {
           paymentUrl = paystackData.data.authorization_url;
-          req.log.info(`Paystack payment URL generated: ${paymentUrl}`);
+          req.log.info(`🔗 Paystack payment URL generated (order will be created after payment): ${paymentUrl}`);
         } else {
           paystackError = paystackData.message || "Failed to initialize Paystack payment";
           req.log.warn(`Paystack initialization failed: ${paystackError}`);
@@ -246,17 +240,21 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         req.log.warn({ err }, "Paystack initialization error");
       }
     } else {
-      req.log.info("Paystack not configured with valid key, order created but payment URL not available");
+      req.log.info("Paystack not configured with valid key, returning error");
+      paystackError = "Payment service not configured";
     }
 
-    return res.status(201).json({
-      order: formatOrder(order),
+    if (!paymentUrl) {
+      return res.status(503).json({
+        error: paystackError || "Failed to initialize payment",
+        message: "Could not generate payment URL. Please try again.",
+      });
+    }
+
+    return res.status(200).json({
       paymentUrl,
-      paymentError: paystackError,
       reference,
-      message: paymentUrl 
-        ? "Redirect to payment" 
-        : "Order created successfully - Paystack payment not available, please complete manual payment",
+      message: "Proceed to payment - order will be created after payment is confirmed",
     });
   } catch (err) {
     req.log.error({ err }, "Create order error");

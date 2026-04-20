@@ -38,8 +38,21 @@ export default function Login() {
         setLocation(res.user.role === "admin" ? "/admin" : "/dashboard");
       },
       onError: (err: any) => {
-        const msg = err?.response?.data?.error || "Invalid credentials";
-        toast({ title: "Login failed", description: msg, variant: "destructive" });
+        const errorCode = err?.response?.data?.code;
+        const errorMessage = err?.response?.data?.error;
+        let title = "Login failed";
+        let description = errorMessage || "Invalid credentials";
+
+        // Provide specific error messages based on error code
+        if (errorCode === "USER_NOT_FOUND") {
+          title = "Account not found";
+          description = "The username, email or phone number is not registered. Please check and try again or create a new account.";
+        } else if (errorCode === "INVALID_PASSWORD") {
+          title = "Incorrect password";
+          description = "The password you entered is incorrect. Please try again.";
+        }
+
+        toast({ title, description, variant: "destructive" });
       },
     });
   };
