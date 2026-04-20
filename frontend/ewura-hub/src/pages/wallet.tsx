@@ -85,29 +85,49 @@ export default function WalletPage() {
         </div>
         <div className="p-5">
           {user?.isVerified ? (
-            <div className="flex gap-3 max-w-sm">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">₵</span>
-                <Input
-                  data-testid="input-fund-amount"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={fundAmount}
-                  onChange={(e) => setFundAmount(e.target.value)}
-                  className="pl-8 h-11 font-mono text-lg"
-                />
+            <>
+              <div className="flex gap-3 max-w-sm mb-4">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">₵</span>
+                  <Input
+                    data-testid="input-fund-amount"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={fundAmount}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    className="pl-8 h-11 font-mono text-lg"
+                  />
+                </div>
+                <Button
+                  data-testid="button-fund-wallet"
+                  onClick={handleFund}
+                  disabled={fundMutation.isPending || !fundAmount}
+                  className="h-11 font-semibold shadow-lg shadow-primary/25 whitespace-nowrap"
+                >
+                  {fundMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fund via Paystack"}
+                </Button>
               </div>
-              <Button
-                data-testid="button-fund-wallet"
-                onClick={handleFund}
-                disabled={fundMutation.isPending || !fundAmount}
-                className="h-11 font-semibold shadow-lg shadow-primary/25 whitespace-nowrap"
-              >
-                {fundMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fund via Paystack"}
-              </Button>
-            </div>
+
+              {/* Fee Breakdown */}
+              {fundAmount && parseFloat(fundAmount) >= 1 && (
+                <div className="max-w-sm bg-muted/50 border border-border rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Amount to receive:</span>
+                    <span className="font-semibold text-foreground">₵{parseFloat(fundAmount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">4% Admin fee:</span>
+                    <span className="font-semibold text-orange-500">-₵{(parseFloat(fundAmount) * 0.04).toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between items-center text-sm">
+                    <span className="font-bold text-foreground">Total to pay:</span>
+                    <span className="font-bold text-foreground">₵{(parseFloat(fundAmount) * 1.04).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
