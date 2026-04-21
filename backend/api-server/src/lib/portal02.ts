@@ -66,6 +66,21 @@ const BASE_URL = process.env.PORTAL02_BASE_URL || "https://www.portal-02.com/api
 const BACKEND_URL = process.env.BACKEND_URL || process.env.VITE_API_URL || "http://localhost:5000";
 const FETCH_TIMEOUT = 30000; // 30 seconds
 
+// ⚠️ CRITICAL: Validate BACKEND_URL in production
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.BACKEND_URL) {
+    console.error(
+      "🚨 CRITICAL: BACKEND_URL is not set in production! Portal-02 webhooks will fail silently.\n" +
+      "Set BACKEND_URL environment variable to your production backend domain (e.g., https://api.yourdomain.com)"
+    );
+  } else if (BACKEND_URL.includes("localhost")) {
+    console.error(
+      "🚨 CRITICAL: BACKEND_URL contains 'localhost' in production! Portal-02 cannot send webhooks to localhost.\n" +
+      "Update BACKEND_URL to your production backend domain."
+    );
+  }
+}
+
 const offerSlugs: Record<string, string> = {
   MTN: "master_beneficiary_data_bundle",
   Telecel: "telecel_expiry_bundle",

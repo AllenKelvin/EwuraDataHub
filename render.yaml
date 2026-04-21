@@ -28,6 +28,8 @@ services:
         scope: all
       - key: CORS_ORIGIN
         scope: all
+      - key: BACKEND_URL
+        value: https://ewura-hub-api.onrender.com
       - key: PAYSTACK_PUBLIC_KEY
         scope: all
       - key: PAYSTACK_SECRET_KEY
