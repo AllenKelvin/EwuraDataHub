@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { User } from "../models/User";
-import { generateToken } from "../lib/jwt";
+import { generateToken, extractTokenFromHeader, verifyToken } from "../lib/jwt";
 import { randomBytes } from "crypto";
 
 const router = Router();
@@ -184,7 +184,22 @@ router.post("/logout", (req: Request, res: Response) => {
 
 router.get("/me", async (req: Request, res: Response) => {
   try {
-    const userId = req.session.userId;
+    let userId: string | null = null;
+
+    // First, try to get userId from session (backward compatibility)
+    if (req.session?.userId) {
+      userId = req.session.userId;
+    } else {
+      // Try to get from JWT token in Authorization header
+      const token = extractTokenFromHeader(req.headers.authorization);
+      if (token) {
+        const payload = verifyToken(token);
+        if (payload) {
+          userId = payload.userId;
+        }
+      }
+    }
+
     if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
