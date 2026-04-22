@@ -56,12 +56,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     // ===== IDEMPOTENCY CHECK =====
-    // Prevent duplicate orders from retried requests
+    // Prevent duplicate orders from retried requests, but allow new orders after delivery
     const idempotencyKey = req.headers['idempotency-key'] as string || 
                           `${user._id}-${productId}-${recipientPhone}-${paymentMethod}`;
     
     const existingOrder = await Order.findOne({ idempotencyKey, userId: user._id });
-    if (existingOrder) {
+    if (existingOrder && existingOrder.status !== "completed") {
       req.log.info(`⚠️  Duplicate order request detected. Returning existing order: ${existingOrder._id}`);
       return res.status(201).json({
         order: formatOrder(existingOrder),
