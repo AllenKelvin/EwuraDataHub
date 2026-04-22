@@ -62,3 +62,4 @@ export const products: Product[] = [
   { id: "at-data-5gb",    network: "AirtelTigo", type: "data", name: "5GB / 30 Days",   description: "AirtelTigo 5GB Data — 30 days validity",   userPrice: 17.00, agentPrice: 15.30, value: "5GB"   },
   { id: "at-data-10gb",   network: "AirtelTigo", type: "data", name: "10GB / 30 Days",  description: "AirtelTigo 10GB Data — 30 days validity",  userPrice: 32.00, agentPrice: 28.80, value: "10GB"  },
 ];
+
