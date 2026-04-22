@@ -39,6 +39,7 @@ services:
         scope: all
       - key: PORTAL02_BASE_URL
         value: https://www.portal-02.com/api/v1
+        scope: all
       - key: BREVO_API_KEY
         scope: all
 
