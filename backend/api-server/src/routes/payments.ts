@@ -89,9 +89,15 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
       req.log.info(`Payment verification: Processing wallet fund: ${amount} (with ${adminFee} admin fee, total: ${totalCharged}) for user ${userId}`);
       
       try {
-        await User.findByIdAndUpdate(userId, {
+        // Update user wallet balance
+        const updatedUser = await User.findByIdAndUpdate(userId, {
           $inc: { walletBalance: amount, totalFunded: amount },
-        });
+        }, { new: true });
+        
+        if (!updatedUser) {
+          req.log.error(`Payment verification: User ${userId} not found`);
+          return res.json({ status: "failed", message: "User not found" });
+        }
         
         // Check if transaction already exists to prevent duplicates
         const existingTx = await WalletTransaction.findOne({ reference });
@@ -105,10 +111,11 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
           });
         }
         
-        req.log.info(`✅ Payment verification: Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee})`);
+        req.log.info(`✅ Payment verification: Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee}), New Balance: ${updatedUser.walletBalance}`);
         return res.json({
           status: "success",
           message: "Wallet funded successfully",
+          isWalletFund: true,
           wallet: {
             userId,
             amount,
@@ -116,6 +123,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
             totalCharged,
             type: "credit",
             reference,
+            newBalance: updatedUser.walletBalance,
           },
         });
       } catch (walletErr) {
@@ -301,9 +309,21 @@ router.post("/webhook", async (req: Request, res: Response) => {
         req.log.info(`[Paystack Webhook] Processing wallet fund: ${amount} (with ${adminFee} admin fee, total: ${totalCharged}) for user ${userId}`);
         
         try {
-          await User.findByIdAndUpdate(userId, {
+          // Check if transaction already exists to prevent duplicates
+          const existingTx = await WalletTransaction.findOne({ reference });
+          if (existingTx) {
+            req.log.info(`[Paystack Webhook] Transaction already processed for reference: ${reference}`);
+            return res.status(200).json({ received: true });
+          }
+          
+          const updatedUser = await User.findByIdAndUpdate(userId, {
             $inc: { walletBalance: amount, totalFunded: amount },
-          });
+          }, { new: true });
+          
+          if (!updatedUser) {
+            req.log.error(`[Paystack Webhook] User ${userId} not found`);
+            return res.status(200).json({ received: true });
+          }
           
           await WalletTransaction.create({
             userId,
@@ -313,7 +333,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
             reference,
           });
           
-          req.log.info(`✅ [Paystack Webhook] Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee})`);
+          req.log.info(`✅ [Paystack Webhook] Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee}), New Balance: ${updatedUser.walletBalance}`);
           return res.status(200).json({ received: true });
         } catch (walletErr) {
           req.log.error({ err: walletErr }, `[Paystack Webhook] Wallet fund failed`);

@@ -66,13 +66,14 @@ router.post("/fund", requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: data.message || "Payment initialization failed" });
     }
 
+    req.log.info(`Wallet fund initialized: Amount ${amount} (${adminFee} fee) for user ${user._id.toString()}, Reference: ${reference}`);
     return res.json({
       authorizationUrl: data.data.authorization_url,
       accessCode: data.data.access_code,
       reference: data.data.reference,
-      amount, // return original amount for UI display
-      adminFee, // return fee amount for UI display
-      totalChargeAmount, // return total charge for UI display
+      amount,
+      adminFee,
+      totalChargeAmount,
     });
   } catch (err) {
     req.log.error({ err }, "Fund wallet error");
