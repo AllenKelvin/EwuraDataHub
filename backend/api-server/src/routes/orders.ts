@@ -220,6 +220,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
             reference,
             // Store order metadata in Paystack for webhook to use when creating order
             metadata: { 
+              type: "product",
               userId: user._id.toString(),
               username: user.username,
               productId,

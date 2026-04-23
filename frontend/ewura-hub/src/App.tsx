@@ -17,6 +17,7 @@ import Cart from "@/pages/cart";
 import Orders from "@/pages/orders";
 import Wallet from "@/pages/wallet";
 import PaymentCallback from "@/pages/payment-callback";
+import PaystackReturn from "@/pages/paystack-return";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminAgents from "@/pages/admin/agents";
 import AdminOrders from "@/pages/admin/orders";
@@ -169,6 +170,10 @@ function Router() {
 
       <Route path="/payment-callback">
         {() => <PaymentCallback />}
+      </Route>
+
+      <Route path="/paystack-return">
+        {() => <PaystackReturn />}
       </Route>
 
       <Route path="/admin">

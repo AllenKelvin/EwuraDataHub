@@ -21,8 +21,8 @@ Add these variables to your Render project settings:
 | `JWT_EXPIRY` | `7d` | JWT token expiration |
 | `PAYSTACK_SECRET_KEY` | `sk_test_...` | Paystack test/live secret |
 | `PAYSTACK_PUBLIC_KEY` | `pk_test_...` | Paystack test/live public |
-| `CORS_ORIGIN` | `https://ewuradatahub.com,https://www.ewuradatahub.com` | Allowed frontend domains |
-| `FRONTEND_URL` | `https://ewuradatahub.com` | Frontend URL for redirects |
+| `CORS_ORIGIN` | `https://allendatahub.com,https://www.allendatahub.com` | Allowed frontend domains |
+| `FRONTEND_URL` | `https://allendatahub.com` | Frontend URL for redirects |
 | `VENDOR_API_KEY` | `adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9` | **NEW** - AllenDataHub API key |
 | `VENDOR_API_URL` | `https://api.allendatahub.com` | **NEW** - Vendor API base URL |
 | `LOG_LEVEL` | `info` | Logging level |
@@ -125,7 +125,7 @@ Add these variables to your Vercel project:
 
 | Key | Value | Description |
 |-----|-------|-------------|
-| `VITE_API_URL` | `https://api.ewuradatahub.com` | Backend API URL |
+| `VITE_API_URL` | `https://ewura-hub-api.onrender.com` | Backend API URL |
 | `VITE_APP_NAME` | `Ewura Hub` | Application name |
 
 **Note:** Vendor API key is backend-only (not needed in frontend)
@@ -149,13 +149,13 @@ For each environment (Production, Preview, Development):
 
 **Production Environment:**
 ```yaml
-VITE_API_URL=https://api.ewuradatahub.com
+VITE_API_URL=https://ewura-hub-api.onrender.com
 VITE_APP_NAME=Ewura Hub
 ```
 
 **Preview Environment:**
 ```yaml
-VITE_API_URL=https://api.ewuradatahub.com
+VITE_API_URL=https://ewura-hub-api.onrender.com
 VITE_APP_NAME=Ewura Hub (Preview)
 ```
 
@@ -199,11 +199,11 @@ VITE_ENABLE_DEMO_MODE=false
 - [ ] Check log for: "✓ Vendor API client initialized successfully"
 - [ ] Test health endpoint:
   ```bash
-  curl https://api.ewuradatahub.com/health
+  curl https://ewura-hub-api.onrender.com/health
   ```
 - [ ] Test vendor products endpoint:
   ```bash
-  curl https://api.ewuradatahub.com/api/vendor/status
+  curl https://ewura-hub-api.onrender.com/api/vendor/status
   ```
 - [ ] CORS works (test from frontend domain)
 
@@ -211,7 +211,7 @@ VITE_ENABLE_DEMO_MODE=false
 
 - [ ] Frontend builds successfully
 - [ ] No build errors in Vercel console
-- [ ] Frontend loads at `https://ewuradatahub.com`
+- [ ] Frontend loads at `https://allendatahub.com`
 - [ ] Login page appears correctly
 - [ ] Browser console shows no errors
 - [ ] Network tab shows requests to correct API URL
@@ -298,8 +298,8 @@ PAYSTACK_SECRET_KEY=sk_test_...
 PAYSTACK_PUBLIC_KEY=pk_test_...
 
 # CORS & URLs
-CORS_ORIGIN=https://ewuradatahub.com,https://www.ewuradatahub.com
-FRONTEND_URL=https://ewuradatahub.com
+CORS_ORIGIN=https://allendatahub.com,https://www.allendatahub.com
+FRONTEND_URL=https://allendatahub.com
 
 # Vendor API (NEW)
 VENDOR_API_KEY=adh_0e5e0e7aa3d739778f74cd533e8d2c6bd9b1c787ff05a5e9
@@ -312,7 +312,7 @@ LOG_LEVEL=info
 ### Frontend (Vercel)
 ```bash
 # API
-VITE_API_URL=https://api.ewuradatahub.com
+VITE_API_URL=https://ewura-hub-api.onrender.com
 VITE_APP_NAME=Ewura Hub
 ```
 
@@ -323,20 +323,20 @@ VITE_APP_NAME=Ewura Hub
 ### Test Backend Vendor API
 ```bash
 # Check vendor service health
-curl https://api.ewuradatahub.com/api/vendor/status
+curl https://ewura-hub-api.onrender.com/api/vendor/status
 
 # Get vendor products (requires valid token in Authorization header)
-curl https://api.ewuradatahub.com/api/vendor/products \
+curl https://ewura-hub-api.onrender.com/api/vendor/products \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ### Test Frontend
 ```bash
 # Visit frontend
-https://ewuradatahub.com
+https://allendatahub.com
 
 # Check console for API URL
-# Should show: VITE_API_URL = https://api.ewuradatahub.com
+# Should show: VITE_API_URL = https://ewura-hub-api.onrender.com
 ```
 
 ---
@@ -354,14 +354,14 @@ https://ewuradatahub.com
 **Cause:** `CORS_ORIGIN` not updated to correct domain
 **Fix:**
 1. Check Render env var: `CORS_ORIGIN`
-2. Should include: `https://ewuradatahub.com`
+2. Should include: `https://allendatahub.com`
 3. Redeploy backend
 
 ### "API requests failing from frontend"
 **Cause:** `VITE_API_URL` is incorrect on Vercel
 **Fix:**
 1. Go to Vercel Project Settings → Environment Variables
-2. Verify `VITE_API_URL=https://api.ewuradatahub.com`
+2. Verify `VITE_API_URL=https://ewura-hub-api.onrender.com`
 3. Redeploy frontend
 
 ### "Verification failed for JWT"

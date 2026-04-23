@@ -79,8 +79,12 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
     
     const metadata = data.data.metadata;
     
+    // Determine if this is a wallet fund or product order
+    const isWalletFund = metadata?.type === "wallet_fund";
+    const isProductOrder = metadata?.type === "product";
+    
     // Handle wallet fund transactions (no Order created for these)
-    if (metadata?.type === "wallet_fund") {
+    if (isWalletFund) {
       const amount = metadata.amount; // Use metadata amount (without 4% fee)
       const userId = metadata.userId;
       const adminFee = metadata.adminFee;
@@ -134,6 +138,36 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
     
     if (!order) {
       // Order doesn't exist - create it from Paystack metadata
+      // Use idempotencyKey to prevent duplicate order creation
+      const idempotencyKey = metadata?.idempotencyKey;
+      if (idempotencyKey) {
+        const existingOrder = await Order.findOne({ idempotencyKey });
+        if (existingOrder) {
+          req.log.warn(`Payment verification: Order already created with idempotencyKey: ${idempotencyKey}. Order ID: ${existingOrder._id}`);
+          order = existingOrder;
+          return res.json({
+            status: "success",
+            message: "Payment verified",
+            order: {
+              id: order._id.toString(),
+              userId: order.userId.toString(),
+              username: order.username,
+              network: order.network,
+              type: order.type,
+              productName: order.productName,
+              recipientPhone: order.recipientPhone,
+              amount: order.amount,
+              status: order.status,
+              paymentMethod: order.paymentMethod,
+              paymentReference: order.paymentReference,
+              vendorOrderId: order.vendorOrderId,
+              vendorStatus: order.vendorStatus,
+              createdAt: order.createdAt,
+            },
+          });
+        }
+      }
+      
       req.log.info(`Payment verification: Creating order from Paystack metadata. Reference: ${reference}`);
       
       try {
@@ -142,17 +176,16 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
         const recipientPhone = metadata?.recipientPhone;
         const productName = metadata?.productName;
         const username = metadata?.username || user.username;
-        const idempotencyKey = metadata?.idempotencyKey;
 
         if (!productId || !recipientPhone) {
-          req.log.error(`Payment verification: Missing metadata for order creation`, { metadata });
-          return res.json({ status: "success", message: "Payment verified but order creation failed" });
+          req.log.error(`Payment verification: Missing metadata for order creation. ProductId: ${productId}, Phone: ${recipientPhone}`, { metadata });
+          return res.json({ status: "success", message: "Payment verified but order creation failed: missing required fields" });
         }
 
         const product = await Product.findById(productId);
         if (!product) {
-          req.log.warn(`Payment verification: Product ${productId} not found`);
-          return res.json({ status: "success", message: "Payment verified but product not found" });
+          req.log.error(`Payment verification: Product ${productId} not found in database`);
+          return res.json({ status: "success", message: "Payment verified but product not found in system" });
         }
 
         const amount = Number(data.data.amount) / 100;
@@ -173,10 +206,10 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
           idempotencyKey,
         });
         await order.save();
-        req.log.info(`Payment verification: Order created successfully. Order ID: ${order._id}`);
+        req.log.info(`✅ Payment verification: Order created successfully. Order ID: ${order._id}, Product: ${product.name}, Amount: ${amount}`);
       } catch (createErr) {
         req.log.error({ err: createErr }, `Payment verification: Failed to create order`);
-        return res.json({ status: "success", message: "Payment verified but order creation failed" });
+        return res.json({ status: "success", message: "Payment verified but order creation failed: server error" });
       }
     }
 
@@ -344,15 +377,15 @@ router.post("/webhook", async (req: Request, res: Response) => {
       // Handle product orders
       const order = await Order.findOne({ paymentReference: reference });
       if (!order) {
-        req.log.warn(`[Paystack Webhook] No order found for reference: ${reference}`);
+        req.log.warn(`[Paystack Webhook] No order found for reference: ${reference}. This is expected for product orders before verification.`);
         return res.status(200).json({ received: true });
       }
       
-      if (order.status === "pending") {
+      if (order.status === "pending" && (metadata?.type === "product" || order.productId)) {
         req.log.info(`[Paystack Webhook] Order ${order._id} payment confirmed, calling Portal-02...`);
         
         // Try to call vendor API if this is a product order (not wallet fund)
-        if (order.paymentMethod === "paystack" && !event.data.metadata?.type) {
+        if (order.paymentMethod === "paystack" && order.productId && metadata?.type === "product") {
           try {
             const product = await Product.findById(order.productId);
             if (!product) {
