@@ -43,17 +43,17 @@ git push origin main  # Make sure latest code is pushed
 
 3. **Add Environment Variables**:
    - `VITE_API_URL=https://ewura-hub-api.onrender.com`
-   - `VITE_APP_NAME=Ewura Hub`
+   - `VITE_APP_NAME=EwuraDataHub`
 
-4. **Deploy** → Get URL like `https://ewura-hub.vercel.app`
+4. **Deploy** → Get URL like `https://ewuradatahub.vercel.app`
 
 ### Phase 4: Connect Services (2 minutes)
 
 1. Go back to **Render Dashboard**
 2. Select `ewura-hub-api` service
 3. Add environment variables:
-   - `FRONTEND_URL=https://ewura-hub.vercel.app`
-   - `ALLOWED_ORIGINS=https://ewura-hub.vercel.app,https://www.ewura-hub.vercel.app`
+   - `FRONTEND_URL=https://ewuradatahub.vercel.app`
+   - `ALLOWED_ORIGINS=https://ewuradatahub.vercel.app,https://www.ewuradatahub.vercel.app`
 4. **Redeploy**
 
 ### Phase 5: Test (2 minutes)
@@ -61,7 +61,7 @@ git push origin main  # Make sure latest code is pushed
 | Check | URL | Expected |
 |-------|-----|----------|
 | Backend Health | `https://ewura-hub-api.onrender.com/api/health` | `200 ok` |
-| Frontend | `https://ewura-hub.vercel.app` | Page loads |
+| Frontend | `https://ewuradatahub.vercel.app` | Page loads |
 | API Connection | Open frontend, test login | Success |
 
 ---
@@ -86,10 +86,10 @@ git push origin main  # Make sure latest code is pushed
 ```env
 NODE_ENV=production
 PORT=10000
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/db
+MONGODB_URI=mongodb+srv://Ewura:Agent@ewura.5xynt2f.mongodb.net/?appName=Ewura
 SESSION_SECRET=very-long-random-string-here
-FRONTEND_URL=https://ewura-hub.vercel.app
-ALLOWED_ORIGINS=https://ewura-hub.vercel.app
+FRONTEND_URL=https://ewuradatahub.vercel.app
+ALLOWED_ORIGINS=https://ewuradatahub.vercel.app
 PAYSTACK_PUBLIC_KEY=pk_live_...
 PAYSTACK_SECRET_KEY=sk_live_...
 ```
@@ -165,7 +165,7 @@ git status
 
 - **GitHub Repo**: https://github.com/AllenKelvin/EwuraDataHub
 - **Render Backend**: https://ewura-hub-api.onrender.com
-- **Vercel Frontend**: https://ewura-hub.vercel.app
+- **Vercel Frontend**: https://ewuradatahub.vercel.app
 - **MongoDB Atlas**: https://www.mongodb.com/cloud
 - **Render Dashboard**: https://render.com/dashboard
 - **Vercel Dashboard**: https://vercel.com/dashboard

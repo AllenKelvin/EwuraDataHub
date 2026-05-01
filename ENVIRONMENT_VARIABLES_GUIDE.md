@@ -10,7 +10,7 @@
                    /                                \
          ┌────────────────────┐        ┌──────────────────────┐
          │   VERCEL FRONTEND  │        │   RENDER BACKEND     │
-         │  ewura-hub.com     │        │  api.ewuradatahub..  │
+         │  ewuradatahub.com  │        │  api.ewuradatahub..  │
          └────────────────────┘        └──────────────────────┘
               FEW VARIABLES                  MANY VARIABLES
 
@@ -167,7 +167,7 @@ Do I need to set this variable?
 ```
 ┌─────────────────────────────────┐
 │     Git Repository              │
-│  (ewura-hub-wallet)             │
+│  (ewura-data-hub)               │
 │                                 │
 │  ├─ backend/                    │
 │  │  └─ api-server/              │
@@ -176,7 +176,7 @@ Do I need to set this variable?
 │  │     └─ ...                   │
 │  │                              │
 │  └─ frontend/                   │
-│     └─ ewura-hub/               │
+│     └─ ewura-data-hub/               │
 │        ├─ .env.vercel ← Prod    │
 │        ├─ src/                  │
 │        └─ ...                   │

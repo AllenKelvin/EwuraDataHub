@@ -5,7 +5,7 @@
 ### Local Testing
 - [ ] Run `pnpm install --frozen-lockfile`
 - [ ] Run `pnpm workspace @workspace/api-server build`
-- [ ] Run `pnpm workspace @workspace/ewura-hub build`
+- [ ] Run `pnpm workspace @workspace/ewura-data-hub build`
 - [ ] No TypeScript errors: `pnpm workspaces run typecheck`
 - [ ] Test locally: `pnpm run dev` in both frontend and backend
 - [ ] Verify API endpoints work locally
@@ -21,7 +21,7 @@
 
 ### Configuration Files
 - [ ] ✅ `render.yaml` - Created
-- [ ] ✅ `frontend/ewura-hub/vercel.json` - Created
+- [ ] ✅ `frontend/ewura-data-hub/vercel.json` - Created
 - [ ] ✅ `.nvmrc` - Created (Node 20)
 - [ ] ✅ `.env.render` - Created (template)
 - [ ] ✅ `.env.vercel` - Created (template)
@@ -51,7 +51,7 @@
 - [ ] **Create Render Web Service**
   - Dashboard → New Web Service
   - Connect repository: `AllenKelvin/EwuraDataHub`
-  - Name: `ewura-hub-api`
+  - Name: `ewuradatahub-api`
   - Environment: Node
   - Build Command: `pnpm install --frozen-lockfile && pnpm workspace @workspace/api-server build`
   - Start Command: `cd backend/api-server && pnpm start`
@@ -89,7 +89,7 @@
 - [ ] **Import Project to Vercel**
   - Dashboard → Add New → Project
   - Select repository: `AllenKelvin/EwuraDataHub`
-  - Root Directory: `frontend/ewura-hub`
+  - Root Directory: `frontend/ewura-data-hub`
   - Framework: Vite
   - Build Command: `pnpm build`
   - Output Directory: `dist`
@@ -102,7 +102,7 @@
 ### Verify Vercel Frontend
 - [ ] Wait for initial deployment to complete
 - [ ] Check deployment logs
-- [ ] Visit provided Vercel URL (e.g., `https://ewura-hub.vercel.app`)
+- [ ] Visit provided Vercel URL (e.g., `https://ewuradatahub.vercel.app`)
 - [ ] Page should load without errors
 - [ ] Copy Vercel URL for Render update
 - [ ] Open browser DevTools → Network tab
@@ -114,14 +114,14 @@
 
 ### Update Render with Vercel URL
 - [ ] Go back to Render Dashboard
-- [ ] Select `ewura-hub-api` service
+- [ ] Select `ewuradatahub-api` service
 - [ ] Settings → Environment Variables
 - [ ] Update `FRONTEND_URL` = Your Vercel URL
 - [ ] Update `ALLOWED_ORIGINS` = Your Vercel URL (including www if needed)
 - [ ] Save and redeploy
 
 ### Test Full Integration
-- [ ] Frontend loads: `https://ewura-hub.vercel.app`
+- [ ] Frontend loads: `https://ewuradatahub.vercel.app`
 - [ ] Check browser console for errors
 - [ ] Test login functionality
 - [ ] Test API calls (check Network tab)
@@ -276,7 +276,7 @@ If something goes wrong:
 ## Success Criteria ✅
 
 Your deployment is successful when:
-- [ ] Frontend loads at `https://ewura-hub.vercel.app`
+- [ ] Frontend loads at `https://ewuradatahub.vercel.app`
 - [ ] Backend health check returns 200: `https://ewura-hub-api.onrender.com/api/health`
 - [ ] Frontend can call backend APIs
 - [ ] User can register/login

@@ -267,23 +267,23 @@ export default function PaystackReturn() {
               ) : null}
 
               <p className="text-muted-foreground text-sm mb-6">
-                You will be redirected to your dashboard shortly...
+                You will be redirected to your order history shortly...
               </p>
 
               <div className="space-y-3">
                 <Button
                   className="w-full"
-                  onClick={() => navigate(user.role === "admin" ? "/admin" : "/dashboard")}
+                  onClick={() => navigate("/orders")}
                 >
-                  <span>Go to Dashboard</span>
+                  <span>Return to Dashboard (Order History)</span>
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
                 <Button
                   className="w-full"
                   variant="outline"
-                  onClick={() => navigate(walletUpdate ? "/wallet" : "/orders")}
+                  onClick={() => navigate(user.role === "admin" ? "/admin" : "/dashboard")}
                 >
-                  {walletUpdate ? "View Wallet" : "View Orders"}
+                  {walletUpdate ? "View Wallet" : "Go to Main Dashboard"}
                 </Button>
               </div>
             </>
@@ -302,6 +302,12 @@ export default function PaystackReturn() {
               <div className="space-y-3">
                 <Button
                   className="w-full"
+                  onClick={() => navigate("/orders")}
+                >
+                  View Order History
+                </Button>
+                <Button
+                  className="w-full"
                   onClick={() => navigate(user.role === "admin" ? "/admin" : "/dashboard")}
                   variant="outline"
                 >
@@ -310,8 +316,9 @@ export default function PaystackReturn() {
                 <Button
                   className="w-full"
                   onClick={() => navigate("/buy-data")}
+                  variant="ghost"
                 >
-                  Try Another Payment
+                  Buy More Data
                 </Button>
               </div>
             </>

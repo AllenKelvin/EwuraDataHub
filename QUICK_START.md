@@ -27,7 +27,7 @@ PORT=8080 NODE_ENV=development pnpm dev
 
 **Terminal 2 - Frontend:**
 ```bash
-cd frontend/ewura-hub
+cd frontend/ewura-data-hub
 PORT=5173 BASE_PATH=/ VITE_API_URL=http://localhost:8080 pnpm dev
 ```
 

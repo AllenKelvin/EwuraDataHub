@@ -1,4 +1,4 @@
-# Project Rename: Ewura Hub → AllenDataHub
+# Project Rename: Ewura Hub → EwuraDataHub
 
 ## Summary
 Complete list of all files and references that need to be changed from "Ewura" or "ewura" to "AllenDataHub" or appropriate variants.

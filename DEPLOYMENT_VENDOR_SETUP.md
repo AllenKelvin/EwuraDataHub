@@ -35,7 +35,7 @@ https://dashboard.render.com
 ```
 
 #### 2. Select Your Backend Service
-- Click on your `ewura-hub-api` service
+- Click on your `ewuradatahub-api` service
 
 #### 3. Navigate to Environment Variables
 - Go to **Settings** → **Environment** (or **Variables** tab)
@@ -72,7 +72,7 @@ If you want to update the source configuration file:
 ```yaml
 services:
   - type: web
-    name: ewura-hub-api
+    name: ewuradatahub-api
     runtime: node
     plan: standard
     buildCommand: cd backend/api-server && pnpm install && pnpm build

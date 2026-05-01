@@ -12,7 +12,7 @@ NC='\033[0m'
 
 # Configuration
 RENDER_API_URL=${1:-"https://ewura-hub-api.onrender.com"}
-VERCEL_FRONTEND_URL=${2:-"https://ewura-hub.vercel.app"}
+VERCEL_FRONTEND_URL=${2:-"https://ewuradatahub.vercel.app"}
 
 echo -e "${BLUE}🏥 Ewura Hub - Production Health Check${NC}"
 echo "=================================================="

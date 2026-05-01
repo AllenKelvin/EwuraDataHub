@@ -45,7 +45,7 @@ Your Ewura Hub project is now **fully prepared for production deployment** on **
 ```
 ┌─────────────────────────────────────┐
 │  Vercel Frontend                    │
-│  https://ewura-hub.vercel.app       │
+│  https://ewuradatahub.vercel.app       │
 │  (React + Vite + TailwindCSS)       │
 └──────────────┬──────────────────────┘
                │ API Requests
@@ -120,7 +120,7 @@ Your Ewura Hub project is now **fully prepared for production deployment** on **
 5. Let Vercel deploy automatically
 
 ### Step 4: Test & Monitor
-1. Visit https://ewura-hub.vercel.app
+1. Visit https://ewuradatahub.vercel.app
 2. Test API connectivity
 3. Check logs on both platforms
 4. Monitor performance
@@ -139,7 +139,7 @@ Your Ewura Hub project is now **fully prepared for production deployment** on **
 
 ### URLs After Deployment
 ```
-Frontend: https://ewura-hub.vercel.app
+Frontend: https://ewuradatahub.vercel.app
 Backend:  https://ewura-hub-api.onrender.com
 GitHub:   https://github.com/AllenKelvin/EwuraDataHub
 ```
@@ -152,8 +152,8 @@ NODE_ENV=production
 PORT=10000
 MONGODB_URI=mongodb+srv://...
 SESSION_SECRET=random-string
-FRONTEND_URL=https://ewura-hub.vercel.app
-ALLOWED_ORIGINS=https://ewura-hub.vercel.app
+FRONTEND_URL=https://ewuradatahub.vercel.app
+ALLOWED_ORIGINS=https://ewuradatahub.vercel.app
 PAYSTACK_PUBLIC_KEY=pk_live_...
 PAYSTACK_SECRET_KEY=sk_live_...
 ```
@@ -206,7 +206,7 @@ VITE_APP_NAME=Ewura Hub
 curl https://ewura-hub-api.onrender.com/api/health
 
 # Frontend health
-curl https://ewura-hub.vercel.app
+curl https://ewuradatahub.vercel.app
 
 # Run automated check
 ./scripts/health-check-deployment.sh
