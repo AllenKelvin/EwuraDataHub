@@ -7,28 +7,8 @@ const ADMIN_ACCOUNTS = [
   { username: "@Admin002", email: "admin002@allendatahub.com", phone: "0200000002", password: "Password200", role: "admin" as const },
 ];
 
-const PACKAGES = [
-  // ─── MTN Data Bundles ───
-  { name: "MTN 1GB", network: "MTN", type: "data", dataAmount: "1GB", price: 0, userPrice: 5.00, agentPrice: 4.50, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
-  { name: "MTN 2GB", network: "MTN", type: "data", dataAmount: "2GB", price: 0, userPrice: 9.00, agentPrice: 8.10, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
-  { name: "MTN 3GB", network: "MTN", type: "data", dataAmount: "3GB", price: 0, userPrice: 13.00, agentPrice: 11.70, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
-  { name: "MTN 5GB", network: "MTN", type: "data", dataAmount: "5GB", price: 0, userPrice: 21.00, agentPrice: 18.90, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
-  { name: "MTN 10GB", network: "MTN", type: "data", dataAmount: "10GB", price: 0, userPrice: 39.99, agentPrice: 35.99, description: "(Non-Expiry)", vendorProductId: "master_beneficiary_data_bundle" },
-
-  // ─── Telecel Data Bundles ───
-  { name: "Telecel 1GB", network: "Telecel", type: "data", dataAmount: "1GB", price: 0, userPrice: 4.99, agentPrice: 4.49, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
-  { name: "Telecel 2GB", network: "Telecel", type: "data", dataAmount: "2GB", price: 0, userPrice: 8.99, agentPrice: 8.09, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
-  { name: "Telecel 3GB", network: "Telecel", type: "data", dataAmount: "3GB", price: 0, userPrice: 12.99, agentPrice: 11.69, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
-  { name: "Telecel 5GB", network: "Telecel", type: "data", dataAmount: "5GB", price: 0, userPrice: 20.99, agentPrice: 18.89, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
-  { name: "Telecel 10GB", network: "Telecel", type: "data", dataAmount: "10GB", price: 0, userPrice: 39.99, agentPrice: 35.99, description: "Data bundle (Expiry Bundle (60 days))", vendorProductId: "telecel_expiry_bundle" },
-
-  // ─── AirtelTigo Data Bundles ───
-  { name: "AirtelTigo 1GB", network: "AirtelTigo", type: "data", dataAmount: "1GB", price: 0, userPrice: 6.00, agentPrice: 5.50, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
-  { name: "AirtelTigo 2GB", network: "AirtelTigo", type: "data", dataAmount: "2GB", price: 0, userPrice: 10.99, agentPrice: 9.89, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
-  { name: "AirtelTigo 3GB", network: "AirtelTigo", type: "data", dataAmount: "3GB", price: 0, userPrice: 15.99, agentPrice: 14.39, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
-  { name: "AirtelTigo 5GB", network: "AirtelTigo", type: "data", dataAmount: "5GB", price: 0, userPrice: 24.99, agentPrice: 22.49, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
-  { name: "AirtelTigo 10GB", network: "AirtelTigo", type: "data", dataAmount: "10GB", price: 0, userPrice: 45.99, agentPrice: 41.39, description: "iShare bundle (60 days)", vendorProductId: "ishare_data_bundle" },
-];
+// Products are now managed via MongoDB only - no more auto-seeding
+// To add products: use admin dashboard or insert directly into MongoDB
 
 export async function seedAdminAccounts() {
   try {
@@ -50,22 +30,19 @@ export async function seedAdminAccounts() {
           logger.info(`Admin account created: ${admin.username}`);
         }
       }),
-      // Seed packages (only add if not exists - preserve custom prices)
+      // Seed packages - DISABLED: Products should only come from MongoDB, not auto-seeded
+      // To add products, use the admin dashboard or direct MongoDB insertion
       (async () => {
         try {
           const count = await Product.countDocuments();
           if (count === 0) {
-            // Only seed on first run, never overwrite existing packages
-            await Product.insertMany(PACKAGES);
-            logger.info(`Seeded ${PACKAGES.length} packages`);
+            logger.info("No products in database - please add products via admin dashboard or MongoDB");
+            // Don't auto-seed - let admin add products manually
           } else {
-            logger.info(`Database already has ${count} packages - skipping seed (preserving custom prices)`);
-            
-            // But do add vendorProductId to existing packages if missing
-            await updatePackageVendorIds();
+            logger.info(`Database has ${count} products - using database products only`);
           }
         } catch (err: any) {
-          logger.warn({ err }, "Package seeding failed - this is OK without MongoDB");
+          logger.warn({ err }, "Product check failed - this is OK without MongoDB");
         }
       })(),
     ]);
