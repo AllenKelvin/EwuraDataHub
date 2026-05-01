@@ -63,6 +63,7 @@ export default function PaymentCallback() {
           // Invalidate both wallet and orders queries to refresh data
           queryClient.invalidateQueries({ queryKey: ["/api/wallet"] });
           queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           
           // Get the product name to determine redirect destination
           const isWalletFund = !data.order?.productName;
@@ -74,14 +75,8 @@ export default function PaymentCallback() {
               : `Your order for ${data.order?.productName} has been confirmed.`,
           });
 
-          // Redirect to appropriate page after 3 seconds
-          setTimeout(() => {
-            if (isWalletFund) {
-              navigate("/wallet");
-            } else {
-              navigate("/orders");
-            }
-          }, 3000);
+          // Don't auto-redirect - let user choose where to go
+          // User can click buttons below to navigate
         } else {
           setStatus("failed");
           toast({

@@ -5,11 +5,16 @@ const router = Router();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { network } = req.query;
+    const { network, type } = req.query;
     let filter: Record<string, any> = {};
 
     if (network) {
       filter.network = network;
+    }
+    
+    // Filter by type (data or airtime) - default to data for buy-data page
+    if (type) {
+      filter.type = type;
     }
 
     // Try to fetch from MongoDB first, fallback to empty array if no connection

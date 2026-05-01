@@ -62,11 +62,11 @@ export default function BuyData() {
   const net = NETWORKS.find(n => n.id === selectedNetwork);
 
   const { data: products = [], isLoading, isError, error } = useGetProducts(
-    { network: selectedNetwork! },
+    { network: selectedNetwork!, type: "data" },
     {
       query: {
         enabled: !!selectedNetwork,
-        queryKey: getGetProductsQueryKey({ network: selectedNetwork! }),
+        queryKey: getGetProductsQueryKey({ network: selectedNetwork!, type: "data" }),
         retry: 3,
         retryDelay: 500,
       },
