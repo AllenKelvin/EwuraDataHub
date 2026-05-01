@@ -8,7 +8,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Wifi, Shield, Zap } from "lucide-react";
+import { Loader2, Wifi, Shield, Zap, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 
 const schema = z.object({
   emailOrPhone: z.string().min(1, "This field is required"),
@@ -17,6 +18,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function Login() {
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -75,7 +77,7 @@ export default function Login() {
               <span className="text-white font-black text-xl">E</span>
             </div>
             <div>
-              <p className="text-white font-bold text-xl leading-tight">Allen DataHub</p>
+              <p className="text-white font-bold text-xl leading-tight">EwuraDataHub</p>
               <p className="text-white/40 text-xs">Premium Data Services</p>
             </div>
           </div>
@@ -136,7 +138,7 @@ export default function Login() {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
             <span className="text-white font-black text-lg">E</span>
           </div>
-          <span className="font-bold text-xl text-foreground">Allen DataHub</span>
+          <span className="font-bold text-xl text-foreground">EwuraDataHub</span>
         </div>
 
         <div className="w-full max-w-sm">
@@ -179,13 +181,24 @@ export default function Login() {
                       </Link>
                     </div>
                     <FormControl>
-                      <Input
-                        data-testid="input-password"
-                        type="password"
-                        placeholder="Enter your password"
-                        className="h-11 bg-card border-border/80 focus:border-primary"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          data-testid="input-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          className="h-11 bg-card border-border/80 focus:border-primary pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary focus:outline-none"
+                          tabIndex={-1}
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

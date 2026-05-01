@@ -114,7 +114,7 @@ export function Navbar() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-white font-bold text-lg">E</span>
             </div>
-            <span className="font-bold text-xl tracking-tight hidden sm:inline-block">Allen DataHub</span>
+            <span className="font-bold text-xl tracking-tight hidden sm:inline-block">EwuraDataHub</span>
           </Link>
 
           {user && (
@@ -163,7 +163,7 @@ export function Navbar() {
                   <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                     <span className="text-white font-bold text-lg">E</span>
                   </div>
-                  <span className="font-bold text-xl tracking-tight">Allen DataHub</span>
+                  <span className="font-bold text-xl tracking-tight">EwuraDataHub</span>
                 </div>
                 
                 {user && (

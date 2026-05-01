@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Info, User, Briefcase } from "lucide-react";
+import { Loader2, Info, User, Briefcase, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 
 const schema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -21,6 +22,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function Register() {
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -41,7 +43,7 @@ export default function Register() {
           localStorage.setItem('token', res.token);
         }
         login(res.user);
-        toast({ title: "Account created!", description: "Welcome to Allen DataHub" });
+        toast({ title: "Account created!", description: "Welcome to EwuraDataHub" });
         setLocation(res.user.role === "admin" ? "/admin" : "/dashboard");
       },
       onError: (err: any) => {
@@ -75,7 +77,7 @@ export default function Register() {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
             <span className="text-white font-black text-lg">E</span>
           </div>
-          <span className="font-bold text-xl text-foreground">Allen DataHub</span>
+          <span className="font-bold text-xl text-foreground">EwuraDataHub</span>
         </div>
 
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
@@ -185,7 +187,24 @@ export default function Register() {
                     <FormItem>
                       <FormLabel className="text-xs font-semibold text-foreground/70">Password</FormLabel>
                       <FormControl>
-                        <Input data-testid="input-password" type="password" placeholder="Min. 6 characters" className="h-10" {...field} />
+                        <div className="relative">
+                          <Input
+                            data-testid="input-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Min. 6 characters"
+                            className="h-10 pr-10"
+                            {...field}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary focus:outline-none"
+                            tabIndex={-1}
+                            onClick={() => setShowPassword((v) => !v)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                          >
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>

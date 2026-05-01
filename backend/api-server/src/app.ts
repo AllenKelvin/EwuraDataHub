@@ -160,7 +160,7 @@ app.use(session({
 // Root route - API info
 app.get("/", (_req, res) => {
   res.json({
-    name: "Allen DataHub API",
+    name: "EwuraDataHub API",
     status: "running",
     version: "1.0.0",
     environment: process.env.NODE_ENV,
