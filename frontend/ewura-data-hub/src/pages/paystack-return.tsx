@@ -331,7 +331,7 @@ export default function PaystackReturn() {
           ) : (
             <>
               Need help?{" "}
-              <a href="mailto:support@allendatahub.com" className="text-primary hover:underline">
+              <a href="mailto:support@ewuradatahub.com" className="text-primary hover:underline">
                 Contact Support
               </a>
             </>

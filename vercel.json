@@ -1,7 +1,7 @@
 {
-  "buildCommand": "pnpm -C frontend/ewura-hub run build",
+  "buildCommand": "pnpm -C frontend/ewura-data-hub run build",
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "outputDirectory": "frontend/ewura-hub/dist",
+  "outputDirectory": "frontend/ewura-data-hub/dist",
   "framework": "vite",
   "rewrites": [
     {
