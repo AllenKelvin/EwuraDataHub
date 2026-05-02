@@ -21,6 +21,7 @@ import PaystackReturn from "@/pages/paystack-return";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminAgents from "@/pages/admin/agents";
 import AdminOrders from "@/pages/admin/orders";
+import AdminProducts from "@/pages/admin/products";
 import NotFound from "@/pages/not-found";
 
 // Error Boundary Component
@@ -194,6 +195,13 @@ function Router() {
         {() => (
           <AppLayout>
             <ProtectedRoute component={AdminOrders} allowedRoles={["admin"]} />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/admin/products">
+        {() => (
+          <AppLayout>
+            <ProtectedRoute component={AdminProducts} allowedRoles={["admin"]} />
           </AppLayout>
         )}
       </Route>

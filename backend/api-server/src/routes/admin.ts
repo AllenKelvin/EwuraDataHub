@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { Order } from "../models/Order";
 import { User } from "../models/User";
+import { Product } from "../models/Product";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { requireAuth, requireAdmin } from "../lib/auth-middleware";
 
@@ -197,6 +198,136 @@ router.patch("/agents/:id/balance", requireAuth, requireAdmin, async (req: Reque
     });
   } catch (err) {
     req.log.error({ err }, "Adjust balance error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ==================== PRODUCT MANAGEMENT ====================
+
+// Get all products
+router.get("/products", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { network, type, limit = 50, page = 1 } = req.query;
+    let filter: any = {};
+
+    if (network) filter.network = network;
+    if (type) filter.type = type;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await Product.countDocuments(filter);
+    const products = await Product.find(filter)
+      .sort({ network: 1, dataAmount: 1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    return res.json({
+      products: products.map((p) => ({
+        id: p._id.toString(),
+        name: p.name,
+        network: p.network,
+        type: p.type,
+        dataAmount: p.dataAmount,
+        userPrice: p.userPrice,
+        agentPrice: p.agentPrice,
+        description: p.description,
+        vendorProductId: p.vendorProductId,
+        createdAt: p.createdAt,
+      })),
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin products error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Create new product
+router.post("/products", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, network, type, dataAmount, userPrice, agentPrice, description, vendorProductId } = req.body;
+
+    if (!name || !network || !type || !dataAmount || userPrice === undefined || agentPrice === undefined) {
+      return res.status(400).json({ error: "Missing required fields: name, network, type, dataAmount, userPrice, agentPrice" });
+    }
+
+    const product = new Product({
+      name,
+      network,
+      type,
+      dataAmount,
+      userPrice,
+      agentPrice,
+      description: description || "",
+      vendorProductId: vendorProductId || "",
+    });
+
+    await product.save();
+
+    return res.status(201).json({
+      id: product._id.toString(),
+      name: product.name,
+      network: product.network,
+      type: product.type,
+      dataAmount: product.dataAmount,
+      userPrice: product.userPrice,
+      agentPrice: product.agentPrice,
+      description: product.description,
+      vendorProductId: product.vendorProductId,
+      createdAt: product.createdAt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin create product error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update product
+router.put("/products/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, network, type, dataAmount, userPrice, agentPrice, description, vendorProductId } = req.body;
+
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { name, network, type, dataAmount, userPrice, agentPrice, description, vendorProductId },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    return res.json({
+      id: product._id.toString(),
+      name: product.name,
+      network: product.network,
+      type: product.type,
+      dataAmount: product.dataAmount,
+      userPrice: product.userPrice,
+      agentPrice: product.agentPrice,
+      description: product.description,
+      vendorProductId: product.vendorProductId,
+      createdAt: product.createdAt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin update product error");
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Delete product
+router.delete("/products/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    return res.json({ message: "Product deleted successfully" });
+  } catch (err) {
+    req.log.error({ err }, "Admin delete product error");
     return res.status(500).json({ error: "Server error" });
   }
 });

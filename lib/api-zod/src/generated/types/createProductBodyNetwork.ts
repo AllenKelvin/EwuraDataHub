@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type OrderNetwork = typeof OrderNetwork[keyof typeof OrderNetwork];
+export type CreateProductBodyNetwork = typeof CreateProductBodyNetwork[keyof typeof CreateProductBodyNetwork];
 
 
-export const OrderNetwork = {
+export const CreateProductBodyNetwork = {
   MTN: 'MTN',
   Telecel: 'Telecel',
   AirtelTigo: 'AirtelTigo',

@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetProductsType = typeof GetProductsType[keyof typeof GetProductsType];
+export type GetAdminProductsType = typeof GetAdminProductsType[keyof typeof GetAdminProductsType];
 
 
-export const GetProductsType = {
+export const GetAdminProductsType = {
   airtime: 'airtime',
   data: 'data',
 } as const;

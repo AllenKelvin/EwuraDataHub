@@ -5,10 +5,10 @@
  * Ewura Hub API - Airtime & Data selling platform
  * OpenAPI spec version: 0.1.0
  */
-import type { User } from './user';
+import type { Product } from './product';
 
-export interface AgentsResponse {
-  agents: User[];
+export interface AdminProductsResponse {
+  products: Product[];
   total: number;
   page: number;
   pages: number;

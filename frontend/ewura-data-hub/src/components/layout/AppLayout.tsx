@@ -22,6 +22,7 @@ function getNavItems(role?: string): NavItem[] {
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { label: "All Orders", href: "/admin/orders", icon: ClipboardList },
     { label: "Agents", href: "/admin/agents", icon: Users },
+    { label: "Products", href: "/admin/products", icon: ShoppingBag },
   ];
   if (role === "agent") return [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

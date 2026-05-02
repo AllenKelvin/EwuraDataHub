@@ -365,6 +365,98 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrdersResponse"
 
+  /admin/products:
+    get:
+      operationId: getAdminProducts
+      tags: [admin]
+      summary: Get all products (admin)
+      parameters:
+        - name: network
+          in: query
+          schema:
+            type: string
+            enum: [MTN, Telecel, AirtelTigo]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [airtime, data]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Products list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProductsResponse"
+    post:
+      operationId: createProduct
+      tags: [admin]
+      summary: Create a new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+  /admin/products/{id}:
+    put:
+      operationId: updateProduct
+      tags: [admin]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductBody"
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [admin]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   /admin/agents:
     get:
       operationId: getAdminAgents
@@ -550,7 +642,74 @@ components:
           type: number
         value:
           type: string
-      required: [id, network, type, name, userPrice, agentPrice, value]
+        dataAmount:
+          type: string
+        vendorProductId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, network, type, name, userPrice, agentPrice, value, dataAmount, description, createdAt]
+
+    CreateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        network:
+          type: string
+          enum: [MTN, Telecel, AirtelTigo]
+        type:
+          type: string
+          enum: [airtime, data]
+        dataAmount:
+          type: string
+        userPrice:
+          type: number
+        agentPrice:
+          type: number
+        description:
+          type: string
+        vendorProductId:
+          type: string
+      required: [name, network, type, dataAmount, userPrice, agentPrice, description]
+
+    UpdateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        network:
+          type: string
+          enum: [MTN, Telecel, AirtelTigo]
+        type:
+          type: string
+          enum: [airtime, data]
+        dataAmount:
+          type: string
+        userPrice:
+          type: number
+        agentPrice:
+          type: number
+        description:
+          type: string
+        vendorProductId:
+          type: string
+
+    AdminProductsResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+        page:
+          type: integer
+        pages:
+          type: integer
+      required: [products, total, page, pages]
 
     Order:
       type: object
