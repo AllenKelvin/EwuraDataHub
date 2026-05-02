@@ -9,9 +9,6 @@ catalogs:
     '@tailwindcss/vite':
       specifier: ^4.1.14
       version: 4.2.2
-    '@tanstack/react-query':
-      specifier: ^5.90.21
-      version: 5.99.0
     '@types/node':
       specifier: ^25.3.3
       version: 25.6.0
@@ -598,7 +595,7 @@ importers:
   lib/api-client-react:
     dependencies:
       '@tanstack/react-query':
-        specifier: 'catalog:'
+        specifier: ^5.90.21
         version: 5.99.0(react@19.1.0)
 
   lib/api-spec:
