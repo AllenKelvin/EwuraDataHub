@@ -79,61 +79,16 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
     
     const metadata = data.data.metadata;
     
-    // Determine if this is a wallet fund or product order
-    const isWalletFund = metadata?.type === "wallet_fund";
-    const isProductOrder = metadata?.type === "product";
-    
     // Handle wallet fund transactions (no Order created for these)
-    if (isWalletFund) {
-      const amount = metadata.amount; // Use metadata amount (without 4% fee)
-      const userId = metadata.userId;
-      const adminFee = metadata.adminFee;
-      const totalCharged = metadata.totalChargeAmount;
-      
-      req.log.info(`Payment verification: Processing wallet fund: ${amount} (with ${adminFee} admin fee, total: ${totalCharged}) for user ${userId}`);
-      
-      try {
-        // Update user wallet balance
-        const updatedUser = await User.findByIdAndUpdate(userId, {
-          $inc: { walletBalance: amount, totalFunded: amount },
-        }, { new: true });
-        
-        if (!updatedUser) {
-          req.log.error(`Payment verification: User ${userId} not found`);
-          return res.json({ status: "failed", message: "User not found" });
-        }
-        
-        // Check if transaction already exists to prevent duplicates
-        const existingTx = await WalletTransaction.findOne({ reference });
-        if (!existingTx) {
-          await WalletTransaction.create({
-            userId,
-            type: "credit",
-            amount,
-            description: `Wallet funded via Paystack (4% fee: ${adminFee})`,
-            reference,
-          });
-        }
-        
-        req.log.info(`✅ Payment verification: Wallet fund successful: ${amount} credited to user ${userId} (Fee: ${adminFee}), New Balance: ${updatedUser.walletBalance}`);
-        return res.json({
-          status: "success",
-          message: "Wallet funded successfully",
-          isWalletFund: true,
-          wallet: {
-            userId,
-            amount,
-            adminFee,
-            totalCharged,
-            type: "credit",
-            reference,
-            newBalance: updatedUser.walletBalance,
-          },
-        });
-      } catch (walletErr) {
-        req.log.error({ err: walletErr }, `Payment verification: Wallet fund failed`);
-        return res.json({ status: "failed", message: "Wallet fund failed" });
-      }
+    // NOTE: Wallet funds are ONLY processed via webhook to prevent double crediting
+    if (metadata?.type === "wallet_fund") {
+      req.log.info(`Payment verification: Wallet fund detected. Processing via webhook only. Reference: ${reference}`);
+      return res.json({
+        status: "success",
+        message: "Payment verified - wallet fund will be processed via webhook",
+        isWalletFund: true,
+        reference,
+      });
     }
     
     if (!order) {

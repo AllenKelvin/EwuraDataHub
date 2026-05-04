@@ -205,17 +205,18 @@ export default function AdminProducts() {
         </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Product</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Network</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Type</th>
-                <th className="text-right px-4 py-3 text-sm font-semibold">User Price</th>
-                <th className="text-right px-4 py-3 text-sm font-semibold">Agent Price</th>
-                <th className="text-right px-4 py-3 text-sm font-semibold">Actions</th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Product</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Network</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Type</th>
+                  <th className="text-right px-4 py-3 text-sm font-semibold">User Price</th>
+                  <th className="text-right px-4 py-3 text-sm font-semibold">Agent Price</th>
+                  <th className="text-right px-4 py-3 text-sm font-semibold">Actions</th>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-border">
               {data?.products?.map((product: any) => (
                 <tr key={product.id} className="hover:bg-muted/30">
