@@ -188,7 +188,7 @@ export default function BuyData() {
                   <p className="text-xs text-muted-foreground">{error?.message || "Unknown error"}</p>
                 </div>
               ) : products && products.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-x-auto pb-4 md:pb-0">
                   {products.map((pkg: any) => {
                     const active = selectedProductId === pkg._id;
                     const pkgPrice = isAgent ? pkg.agentPrice : pkg.userPrice;
@@ -196,7 +196,7 @@ export default function BuyData() {
                       <button
                         key={pkg._id}
                         onClick={() => setSelectedProductId(pkg._id)}
-                        className={`rounded-2xl border-2 p-4 text-left transition-all ${
+                        className={`flex-shrink-0 md:flex-shrink rounded-2xl border-2 p-4 text-left transition-all w-40 md:w-auto ${
                           active
                             ? `${net?.border} ${net?.activeBg} shadow-md`
                             : "border-border bg-card hover:border-muted-foreground/30"
