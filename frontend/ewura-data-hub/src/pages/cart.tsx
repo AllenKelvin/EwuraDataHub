@@ -100,12 +100,12 @@ export default function Cart() {
           if (paymentMethod === "wallet") {
             // Order created immediately for wallet payment, invalidate orders query
             queryClient.invalidateQueries({ 
-              queryKey: ["/api/orders"] 
+              queryKey: getGetOrdersQueryKey() 
             });
             
             // Invalidate wallet balance
             queryClient.invalidateQueries({ 
-              queryKey: ["/api/wallet"]
+              queryKey: getGetWalletQueryKey()
             });
             
             toast({ 

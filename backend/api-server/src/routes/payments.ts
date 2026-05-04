@@ -330,10 +330,58 @@ router.post("/webhook", async (req: Request, res: Response) => {
       }
       
       // Handle product orders
-      const order = await Order.findOne({ paymentReference: reference });
+      let order = await Order.findOne({ paymentReference: reference });
       if (!order) {
-        req.log.warn(`[Paystack Webhook] No order found for reference: ${reference}. This is expected for product orders before verification.`);
-        return res.status(200).json({ received: true });
+        // Create order from Paystack metadata if it doesn't exist
+        if (metadata?.type === "product") {
+          req.log.info(`[Paystack Webhook] Creating order from Paystack metadata for reference: ${reference}`);
+          
+          try {
+            const user = await User.findById(metadata.userId);
+            if (!user) {
+              req.log.error(`[Paystack Webhook] User ${metadata.userId} not found for order creation`);
+              return res.status(200).json({ received: true });
+            }
+            
+            const product = await Product.findById(metadata.productId);
+            if (!product) {
+              req.log.error(`[Paystack Webhook] Product ${metadata.productId} not found for order creation`);
+              return res.status(200).json({ received: true });
+            }
+            
+            const isAgent = user.role === "agent" || user.role === "admin";
+            const price = isAgent ? product.agentPrice : product.userPrice;
+            
+            order = new Order({
+              userId: user._id,
+              username: user.username,
+              productId: metadata.productId,
+              network: product.network,
+              type: product.type,
+              productName: product.name,
+              recipientPhone: metadata.recipientPhone,
+              amount: price,
+              status: "pending", // Will be updated below
+              paymentMethod: "paystack",
+              paymentReference: reference,
+              idempotencyKey: metadata.idempotencyKey,
+              vendorOrderId: undefined,
+              vendorReference: undefined,
+              vendorProductId: product.vendorProductId || `${product.network}_${product.dataAmount}`,
+              vendorStatus: undefined,
+              webhookHistory: [],
+            });
+            
+            await order.save();
+            req.log.info(`[Paystack Webhook] Order created successfully: ${order._id}`);
+          } catch (createErr) {
+            req.log.error({ err: createErr }, `[Paystack Webhook] Failed to create order from metadata`);
+            return res.status(200).json({ received: true });
+          }
+        } else {
+          req.log.warn(`[Paystack Webhook] No order found for reference: ${reference} and no product metadata available.`);
+          return res.status(200).json({ received: true });
+        }
       }
       
       if (order.status === "pending" && (metadata?.type === "product" || order.productId)) {
