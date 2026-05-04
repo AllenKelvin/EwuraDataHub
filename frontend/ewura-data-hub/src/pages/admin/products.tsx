@@ -253,6 +253,7 @@ export default function AdminProducts() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
