@@ -117,6 +117,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
               paymentReference: order.paymentReference,
               vendorOrderId: order.vendorOrderId,
               vendorStatus: order.vendorStatus,
+              placedAt: order.placedAt,
               createdAt: order.createdAt,
             },
           });
@@ -159,6 +160,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
           paymentMethod: "paystack",
           paymentReference: reference,
           idempotencyKey,
+          placedAt: new Date(),
         });
         await order.save();
         req.log.info(`✅ Payment verification: Order created successfully. Order ID: ${order._id}, Product: ${product.name}, Amount: ${amount}`);
@@ -178,7 +180,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
           const product = await Product.findById(order.productId);
           if (!product) {
             req.log.warn(`Payment verification: Product ${order.productId} not found`);
-            order.status = "completed";
+            order.status = "failed";
             await order.save();
             return res.json({
               status: "success",
@@ -197,6 +199,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
                 paymentReference: order.paymentReference,
                 vendorOrderId: order.vendorOrderId,
                 vendorStatus: order.vendorStatus,
+                placedAt: order.placedAt,
                 createdAt: order.createdAt,
               },
             });
@@ -259,6 +262,7 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
         paymentReference: order.paymentReference,
         vendorOrderId: order.vendorOrderId,
         vendorStatus: order.vendorStatus,
+        placedAt: order.placedAt,
         createdAt: order.createdAt,
       },
     });
@@ -365,6 +369,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
               paymentMethod: "paystack",
               paymentReference: reference,
               idempotencyKey: metadata.idempotencyKey,
+              placedAt: metadata.placedAt ? new Date(metadata.placedAt) : new Date(),
               vendorOrderId: undefined,
               vendorReference: undefined,
               vendorProductId: product.vendorProductId || `${product.network}_${product.dataAmount}`,
@@ -398,9 +403,12 @@ router.post("/webhook", async (req: Request, res: Response) => {
               return res.status(200).json({ received: true });
             }
             
-            const vendorProductId = product.vendorProductId;
-            
-            if (vendorProductId && validatePhoneNumber(order.recipientPhone)) {
+            const vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
+            if (!product.vendorProductId) {
+              req.log.info(`[Paystack Webhook] Product ${order.productId} has no explicit vendorProductId; falling back to ${vendorProductId}`);
+            }
+
+            if (validatePhoneNumber(order.recipientPhone)) {
               const formattedPhone = formatPhoneNumber(order.recipientPhone);
               req.log.info(`[Paystack Webhook] Calling Portal-02 for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
               
@@ -419,18 +427,15 @@ router.post("/webhook", async (req: Request, res: Response) => {
                 req.log.info(`✅ [Paystack Webhook] Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
               } else {
                 req.log.warn(`❌ [Paystack Webhook] Portal-02 API failed: ${result?.error || "Unknown error"}`);
-                order.status = "completed";
+                order.status = "failed";
               }
-            } else if (!vendorProductId) {
-              req.log.warn(`[Paystack Webhook] Cannot call Portal-02: Product ${order.productId} does not have vendorProductId`);
-              order.status = "completed";
             } else {
               req.log.warn(`[Paystack Webhook] Invalid phone number: ${order.recipientPhone}`);
-              order.status = "completed";
+              order.status = "failed";
             }
           } catch (vendorErr) {
             req.log.warn({ err: vendorErr }, `[Paystack Webhook] Portal-02 call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-            order.status = "completed";
+            order.status = "failed";
           }
         } else {
           // Mark as completed if it's a wallet fund or no product

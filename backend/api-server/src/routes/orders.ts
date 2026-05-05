@@ -228,6 +228,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
               paymentMethod: "paystack",
               idempotencyKey,
               productName: product.name,
+              placedAt: new Date().toISOString(),
             },
           }),
         });
@@ -341,6 +342,7 @@ function formatOrder(order: any) {
     paymentReference: order.paymentReference,
     vendorOrderId: order.vendorOrderId,
     vendorStatus: order.vendorStatus,
+    placedAt: order.placedAt,
     createdAt: order.createdAt,
   };
 }
