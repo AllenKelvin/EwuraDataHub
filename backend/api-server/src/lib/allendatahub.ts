@@ -1,6 +1,6 @@
 import { normalizePhoneNumber } from "./phone-utils";
 
-const API_KEY = process.env.ALLENDATAHUB_API_KEY || "adh_live_m5bym0FLYL5V9k2sFem2nefru1QIOQdialtFftm_IQk";
+const API_KEY = process.env.ALLENDATAHUB_API_KEY || "adh_live_orReuH_xt72-E4CppHK8G25cmtX0EE8_Orm_q6uMhso";
 const RAW_BASE_URL = process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.com";
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/i, "");
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
