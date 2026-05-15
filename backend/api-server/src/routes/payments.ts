@@ -170,83 +170,41 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
       }
     }
 
-    // Update order status and call vendor if needed
+    // Update order status and defer vendor fulfillment to the Paystack webhook flow
     if (order.status === "pending") {
       req.log.info(`Payment verification: Order ${order._id} payment confirmed, processing...`);
-      
-      // Try to call vendor API if this is a product order
-      if (order.paymentMethod === "paystack" && order.productId) {
-        try {
-          const product = await Product.findById(order.productId);
-          if (!product) {
-            req.log.warn(`Payment verification: Product ${order.productId} not found`);
-            order.status = "failed";
-            await order.save();
-            return res.json({
-              status: "success",
-              message: "Payment verified",
-              order: {
-                id: order._id.toString(),
-                userId: order.userId.toString(),
-                username: order.username,
-                network: order.network,
-                type: order.type,
-                productName: order.productName,
-                recipientPhone: order.recipientPhone,
-                amount: order.amount,
-                status: order.status,
-                paymentMethod: order.paymentMethod,
-                paymentReference: order.paymentReference,
-                vendorOrderId: order.vendorOrderId,
-                vendorStatus: order.vendorStatus,
-                placedAt: order.placedAt,
-                createdAt: order.createdAt,
-              },
-            });
-          }
-          
-          const vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
-          
-          if (validatePhoneNumber(order.recipientPhone)) {
-            const formattedPhone = formatPhoneNumber(order.recipientPhone);
-            req.log.info(`Payment verification: Calling AllenDataHub for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
-            
-            const volume = Number(String(product.dataAmount).replace(/\D/g, ""));
-            if (!volume || Number.isNaN(volume)) {
-              throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
-            }
 
-            const result = await allenDataHubService.purchaseDataBundle({
-              phoneNumber: formattedPhone,
-              network: product.network,
-              volume,
-            });
-            
-            if (result && result.success) {
-              order.vendorOrderId = result.transactionId || result.orderId;
-              order.vendorReference = result.reference; // Store reference for webhook lookup
-              order.vendorProductId = vendorProductId;
-              order.vendorStatus = result.status || "pending";
-              order.status = "processing";
-              req.log.info(`✅ Payment verification: AllenDataHub order created successfully. Vendor Order ID: ${order.vendorOrderId}`);
-            } else {
-              req.log.warn(`❌ Payment verification: AllenDataHub API failed: ${result?.error || "Unknown error"}`);
-              order.status = "failed";
-            }
-          } else {
-            req.log.warn(`Payment verification: Invalid phone number: ${order.recipientPhone}`);
-            order.status = "failed";
-          }
-        } catch (vendorErr) {
-          req.log.warn({ err: vendorErr }, `Payment verification: AllenDataHub call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-          // Mark order as failed if AllenDataHub call fails
-          order.status = "failed";
-        }
-      } else {
-        order.status = "completed";
+      // Product orders are fulfilled by the Paystack webhook handler.
+      // Avoid duplicate vendor calls from the manual verification path.
+      if (order.paymentMethod === "paystack" && order.productId) {
+        req.log.info(`Payment verification: Order ${order._id} is pending. Vendor fulfillment will be handled by webhook, not verification.`);
+        return res.json({
+          status: "success",
+          message: "Payment verified - order is pending vendor fulfillment",
+          order: {
+            id: order._id.toString(),
+            userId: order.userId.toString(),
+            username: order.username,
+            network: order.network,
+            type: order.type,
+            productName: order.productName,
+            recipientPhone: order.recipientPhone,
+            amount: order.amount,
+            status: order.status,
+            paymentMethod: order.paymentMethod,
+            paymentReference: order.paymentReference,
+            vendorOrderId: order.vendorOrderId,
+            vendorStatus: order.vendorStatus,
+            placedAt: order.placedAt,
+            createdAt: order.createdAt,
+          },
+        });
       }
 
-      await order.save();
+      if (order.paymentMethod !== "paystack" || !order.productId) {
+        order.status = "completed";
+        await order.save();
+      }
     }
 
     return res.json({
