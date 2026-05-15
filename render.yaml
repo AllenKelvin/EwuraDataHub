@@ -3,8 +3,8 @@ services:
     name: allen-data-hub-api
     runtime: node
     plan: standard
-    buildCommand: cd backend/api-server && pnpm install && pnpm build
-    startCommand: cd backend/api-server && pnpm start
+    buildCommand: cd backend/api-server && pnpm install --include=dev --frozen-lockfile && pnpm build
+    startCommand: cd backend/api-server && pnpm exec node --enable-source-maps ./dist/index.mjs
     envVars:
       - key: ENABLE_PNPM
         value: "true"
