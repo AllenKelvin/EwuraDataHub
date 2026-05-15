@@ -23,14 +23,14 @@ export interface AllenDataHubProduct {
 
 export interface AllenDataHubPurchaseRequest {
   phoneNumber: string;
-  productId?: string;
-  network?: string;
-  volume?: number;
+  network: string;
+  volume: number;
   webhookUrl?: string;
 }
 
 export interface AllenDataHubPurchaseResponse {
   success: boolean;
+  order?: Record<string, any>;
   orderId?: string;
   transactionId?: string;
   reference?: string;
@@ -108,11 +108,11 @@ class AllenDataHubService {
     return data.products || [];
   }
 
-  async purchaseDataBundle({ phoneNumber, productId, network, volume, webhookUrl }: AllenDataHubPurchaseRequest): Promise<AllenDataHubPurchaseResponse> {
-    if (!phoneNumber) {
+  async purchaseDataBundle({ phoneNumber, network, volume, webhookUrl }: AllenDataHubPurchaseRequest): Promise<AllenDataHubPurchaseResponse> {
+    if (!phoneNumber || !network || !volume) {
       return {
         success: false,
-        error: "Missing required field: phoneNumber",
+        error: "Missing required fields: phoneNumber, network, volume",
       };
     }
 
@@ -121,32 +121,6 @@ class AllenDataHubService {
       return {
         success: false,
         error: normalized.error || "Invalid phone number",
-      };
-    }
-
-    if (productId) {
-      const payload: Record<string, any> = {
-        phoneNumber: normalized.formatted,
-        productId,
-        webhookUrl: webhookUrl || DEFAULT_WEBHOOK_URL,
-      };
-
-      const data = await fetchJson<AllenDataHubPurchaseResponse>("/api/v1/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": API_KEY,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      return data;
-    }
-
-    if (!network || !volume) {
-      return {
-        success: false,
-        error: "Missing required fields: network, volume",
       };
     }
 
@@ -171,16 +145,28 @@ class AllenDataHubService {
       webhookUrl: webhookUrl || DEFAULT_WEBHOOK_URL,
     };
 
-    const data = await fetchJson<AllenDataHubPurchaseResponse>("/api/v1/data/purchase", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": API_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const data = await fetchJson<AllenDataHubPurchaseResponse>("/api/v1/data/purchase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
 
-    return data;
+      return {
+        ...data,
+        orderId: data.orderId || data.order?.id || data.transactionId,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "AllenDataHub API error";
+      return {
+        success: false,
+        error: message,
+        raw: (err as any).response || null,
+      };
+    }
   }
 
   async getOrders(page = 1, limit = 20): Promise<any> {

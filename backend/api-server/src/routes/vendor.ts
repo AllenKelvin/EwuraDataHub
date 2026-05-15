@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import allenDataHubService from "../lib/allendatahub";
 import { Order } from "../models/Order";
+import { Product } from "../models/Product";
 import { requireAuth } from "../lib/auth-middleware";
 
 const router = Router();
@@ -12,7 +13,7 @@ const router = Router();
 router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const { phoneNumber, bundleSize, network, productId } = req.body;
+    const { phoneNumber, bundleSize, network, productId, webhookUrl } = req.body;
 
     if (!phoneNumber || (!bundleSize && !productId) || (!network && !productId)) {
       return res.status(400).json({
@@ -20,19 +21,36 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Create order with AllenDataHub
+    let resolvedNetwork = network;
+    let resolvedVolume = bundleSize !== undefined ? Number(bundleSize) : undefined;
+    let productName = `${network} ${bundleSize}GB`;
+
+    if (productId && (!resolvedNetwork || !resolvedVolume)) {
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(400).json({ error: `Product with ID '${productId}' not found` });
+      }
+      resolvedNetwork = product.network;
+      resolvedVolume = Number(String(product.dataAmount).replace(/\D/g, ""));
+      productName = product.name;
+    }
+
+    if (!resolvedNetwork || !resolvedVolume || Number.isNaN(resolvedVolume)) {
+      return res.status(400).json({
+        error: "Missing or invalid network/volume. Provide productId or both network and bundleSize.",
+      });
+    }
+
     const result = await allenDataHubService.purchaseDataBundle({
       phoneNumber,
-      productId,
-      network,
-      volume: bundleSize ? Number(bundleSize) : undefined,
+      network: resolvedNetwork,
+      volume: resolvedVolume,
+      webhookUrl,
     });
 
     if (!result || !result.success) {
       return res.status(400).json({
         error: result?.error || "Unknown error",
-        platform: result?.platform || "AllenDataHub",
-        details: result?.details || null,
       });
     }
 
@@ -41,19 +59,19 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       userId: user._id,
       username: user.username,
       vendorOrderId: result.orderId || result.transactionId,
-      vendorReference: result.reference, // Store reference for webhook lookup
-      vendorProductId: `${network}_${bundleSize}`,
+      vendorReference: result.reference,
+      vendorProductId: `${resolvedNetwork}_${resolvedVolume}`,
       vendorPhoneNumber: phoneNumber,
-      network,
+      network: resolvedNetwork,
       type: "data",
-      productName: `${network} ${bundleSize}GB`,
+      productName,
       recipientPhone: phoneNumber,
       amount: result.amount || 0,
       status: "pending",
       paymentMethod: "wallet",
       paymentReference: result.reference,
       vendorStatus: result.status,
-      webhookHistory: [], // Initialize empty webhook history
+      webhookHistory: [],
     });
 
     await order.save();
@@ -64,7 +82,7 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
     return res.status(201).json({
       order: {
         id: order._id.toString(),
-        vendorOrderId: result.transactionId,
+        vendorOrderId: result.orderId || result.transactionId,
         status: order.status,
         vendorStatus: result.status,
         amount: result.amount,

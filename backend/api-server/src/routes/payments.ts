@@ -211,14 +211,15 @@ router.get("/verify/:reference", requireAuth, async (req: Request, res: Response
             const formattedPhone = formatPhoneNumber(order.recipientPhone);
             req.log.info(`Payment verification: Calling AllenDataHub for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
             
-            const vendorProductId = product.vendorProductId;
-            if (!vendorProductId) {
-              throw new Error(`Missing vendor productId for AllenDataHub order`);
+            const volume = Number(String(product.dataAmount).replace(/\D/g, ""));
+            if (!volume || Number.isNaN(volume)) {
+              throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
             }
 
             const result = await allenDataHubService.purchaseDataBundle({
               phoneNumber: formattedPhone,
-              productId: vendorProductId,
+              network: product.network,
+              volume,
             });
             
             if (result && result.success) {
@@ -420,14 +421,10 @@ req.log.info(`[Paystack Webhook] Order ${order._id} payment confirmed, calling A
                 throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
               }
 
-              const vendorProductId = product.vendorProductId;
-              if (!vendorProductId) {
-                throw new Error(`Missing vendor productId for AllenDataHub order`);
-              }
-
               const result = await allenDataHubService.purchaseDataBundle({
                 phoneNumber: formattedPhone,
-                productId: vendorProductId,
+                network: product.network,
+                volume,
               });
               
               if (result && result.success) {

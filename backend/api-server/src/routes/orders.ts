@@ -105,14 +105,15 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         const formattedPhone = formatPhoneNumber(recipientPhone);
         req.log.info(`📞 [AllenDataHub] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
 
-        const vendorProductId = product.vendorProductId;
-        if (!vendorProductId) {
-          throw new Error(`Missing vendor productId for AllenDataHub order`);
+        const volume = Number(String(product.dataAmount).replace(/\D/g, ""));
+        if (!volume || Number.isNaN(volume)) {
+          throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
         }
 
         const result = await allenDataHubService.purchaseDataBundle({
           phoneNumber: formattedPhone,
-          productId: vendorProductId,
+          network: product.network,
+          volume,
         });
 
         if (!result) {
