@@ -8,6 +8,7 @@ import payments from "./payments";
 import paystack from "./paystack";
 import admin from "./admin";
 import vendor from "./vendor";
+import allenDataHub from "./allendatahub";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/payments", payments);
 router.use("/paystack", paystack);
 router.use("/admin", admin);
 router.use("/vendor", vendor);
+router.use("/vendor/allen-datahub", allenDataHub);
 
 export default router;

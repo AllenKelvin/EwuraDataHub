@@ -1,0 +1,232 @@
+import { Router, type Request, type Response } from "express";
+import { Order } from "../models/Order";
+import { requireAuth, requireAgent } from "../lib/auth-middleware";
+import allenDataHubService from "../lib/allendatahub";
+import { normalizePhoneNumber, validatePhoneNumber } from "../lib/phone-utils";
+
+const router = Router();
+
+const supportedNetworks = ["MTN", "Telecel", "AirtelTigo"];
+
+function formatOrder(order: any) {
+  return {
+    id: order._id.toString(),
+    vendorOrderId: order.vendorOrderId,
+    vendorReference: order.vendorReference,
+    status: order.status,
+    vendorStatus: order.vendorStatus,
+    network: order.network,
+    type: order.type,
+    productName: order.productName,
+    recipientPhone: order.recipientPhone,
+    amount: order.amount,
+    paymentMethod: order.paymentMethod,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  };
+}
+
+router.get("/products", requireAuth, async (_req: Request, res: Response) => {
+  try {
+    const products = await allenDataHubService.getProducts();
+    return res.json({ success: true, products });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch products",
+    });
+  }
+});
+
+router.post("/purchase", requireAuth, requireAgent, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { phoneNumber, network, volume, webhookUrl } = req.body;
+
+    if (!phoneNumber || !network || volume === undefined) {
+      return res.status(400).json({ error: "Missing required fields: phoneNumber, network, volume" });
+    }
+
+    if (!supportedNetworks.includes(network)) {
+      return res.status(400).json({ error: `Unsupported network: ${network}` });
+    }
+
+    if (!validatePhoneNumber(phoneNumber)) {
+      return res.status(400).json({ error: "Invalid phone number" });
+    }
+
+    const normalized = normalizePhoneNumber(phoneNumber);
+    if (!normalized.success || !normalized.formatted) {
+      return res.status(400).json({ error: normalized.error || "Invalid phone number" });
+    }
+
+    const result = await allenDataHubService.purchaseDataBundle({
+      phoneNumber: normalized.formatted,
+      network,
+      volume: Number(volume),
+      webhookUrl,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error || "AllenDataHub purchase failed",
+        details: result,
+      });
+    }
+
+    const vendorOrderId = result.orderId || result.transactionId || `adh_${Date.now()}`;
+    const order = new Order({
+      userId: user._id,
+      username: user.username,
+      network,
+      type: "data",
+      productName: `${network} ${volume}GB`,
+      recipientPhone: normalized.formatted,
+      amount: result.amount ?? 0,
+      status: "pending",
+      paymentMethod: "vendor_wallet",
+      paymentReference: result.reference,
+      vendorOrderId,
+      vendorReference: result.reference,
+      vendorProductId: `${network}_${volume}`,
+      vendorPhoneNumber: normalized.formatted,
+      vendorStatus: result.status || "pending",
+      webhookHistory: [],
+    });
+
+    await order.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Order created successfully",
+      order: formatOrder(order),
+      requestId: result.requestId,
+    });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      error: err instanceof Error ? err.message : "AllenDataHub purchase failed",
+    });
+  }
+});
+
+router.get("/orders", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { page = 1, limit = 20 } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const filter = { userId: user._id };
+    const total = await Order.countDocuments(filter);
+    const orders = await Order.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    return res.json({
+      success: true,
+      orders: orders.map(formatOrder),
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch orders",
+    });
+  }
+});
+
+router.get("/orders/:vendorOrderId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { vendorOrderId } = req.params;
+
+    const order = await Order.findOne({ vendorOrderId, userId: user._id });
+    if (!order) {
+      return res.status(404).json({ success: false, error: "Order not found" });
+    }
+
+    return res.json({ success: true, order: formatOrder(order) });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch order",
+    });
+  }
+});
+
+router.post("/webhook", async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+    const webhookResult = allenDataHubService.processWebhookPayload(payload);
+
+    if (!webhookResult.success) {
+      return res.status(200).json({ received: true, success: false, error: webhookResult.error });
+    }
+
+    const lookupStrategies = [
+      { vendorOrderId: webhookResult.orderId },
+      { vendorReference: webhookResult.reference },
+      { paymentReference: webhookResult.reference },
+      { vendorOrderId: webhookResult.reference },
+    ];
+
+    let order = null;
+    for (const query of lookupStrategies) {
+      order = await Order.findOne(query as any);
+      if (order) break;
+    }
+
+    if (!order) {
+      return res.status(200).json({ received: true, success: false, message: "Order not found" });
+    }
+
+    const incomingStatus = webhookResult.status?.toString().toLowerCase() || "pending";
+    const oldVendorStatus = order.vendorStatus;
+
+    if (["completed", "delivered", "success", "resolved"].includes(incomingStatus)) {
+      order.status = "completed";
+      order.vendorStatus = "completed";
+    } else if (["failed", "cancelled", "refunded"].includes(incomingStatus)) {
+      order.status = "failed";
+      order.vendorStatus = "failed";
+    } else if (["processing", "pending"].includes(incomingStatus)) {
+      order.status = "processing";
+      order.vendorStatus = incomingStatus as any;
+    }
+
+    if (!order.webhookHistory) order.webhookHistory = [];
+    order.webhookHistory.push({
+      status: incomingStatus,
+      timestamp: webhookResult.timestamp || new Date(),
+      rawPayload: webhookResult.raw || payload,
+    });
+
+    await order.save();
+
+    return res.status(200).json({ received: true, success: true, order: formatOrder(order) });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : "Webhook processing failed" });
+  }
+});
+
+router.get("/status", async (_req: Request, res: Response) => {
+  try {
+    const products = await allenDataHubService.getProducts();
+    return res.json({ success: true, status: "online", productsCount: products.length });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      status: "offline",
+      error: err instanceof Error ? err.message : "Unable to reach AllenDataHub",
+    });
+  }
+});
+
+export default router;
