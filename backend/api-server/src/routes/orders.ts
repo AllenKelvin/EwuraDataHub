@@ -4,7 +4,7 @@ import { User } from "../models/User";
 import { Product } from "../models/Product";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { requireAuth } from "../lib/auth-middleware";
-import portal02Service from "../lib/portal02";
+import allenDataHubService from "../lib/allendatahub";
 import { formatPhoneNumber, validatePhoneNumber } from "../lib/phone-utils";
 
 const router = Router();
@@ -91,57 +91,58 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    // ===== FOR WALLET: CALL PORTAL-02 IMMEDIATELY =====
+    // ===== FOR WALLET: CALL AllenDataHub IMMEDIATELY =====
     // ===== FOR PAYSTACK: WAIT FOR WEBHOOK CONFIRMATION =====
     let vendorOrderId: string | undefined;
     let vendorReference: string | undefined;
     let vendorProductId = product.vendorProductId || `${product.network}_${product.dataAmount}`;
     let vendorError: string | undefined;
 
-    // Only call Portal-02 for WALLET payments (user has sufficient balance already)
-    // For Paystack, we wait for the webhook to confirm payment before calling Portal-02
+    // Only call AllenDataHub for wallet payments (user has sufficient balance already)
+    // For Paystack, we wait for the webhook to confirm payment before calling the vendor
     if (paymentMethod === "wallet" && validatePhoneNumber(recipientPhone)) {
       try {
-        // Format phone number for vendor API
         const formattedPhone = formatPhoneNumber(recipientPhone);
-        req.log.info(`📞 [Portal-02] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
-        
-        // Extract network from product
-        const result = await portal02Service.purchaseDataBundle(
-          formattedPhone,
-          product.dataAmount,
-          product.network
-        );
-        
-        if (!result) {
-          throw new Error("Portal-02 service returned empty result");
+        req.log.info(`📞 [AllenDataHub] Calling vendor for wallet payment. Product: ${productId}, Phone: ${recipientPhone} → ${formattedPhone}`);
+
+        const volume = Number(String(product.dataAmount).replace(/\D/g, ""));
+        if (!volume || Number.isNaN(volume)) {
+          throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
         }
-        
+
+        const result = await allenDataHubService.purchaseDataBundle({
+          phoneNumber: formattedPhone,
+          network: product.network,
+          volume,
+        });
+
+        if (!result) {
+          throw new Error(`AllenDataHub service returned empty result`);
+        }
+
         if (result.success) {
-          vendorOrderId = result.transactionId;
+          vendorOrderId = result.transactionId || result.orderId;
           vendorReference = result.reference;
-          req.log.info(`✅ [Portal-02] Order created successfully. Vendor ID: ${vendorOrderId}`);
+          req.log.info(`✅ [AllenDataHub] Order created successfully. Vendor ID: ${vendorOrderId}`);
         } else {
-          vendorError = result?.error || "Unknown Portal-02 error";
-          req.log.error(`❌ [Portal-02] API failed: ${vendorError}`);
-          // For wallet, reject immediately since we're deducting from wallet
+          vendorError = result?.error || "Unknown AllenDataHub error";
+          req.log.error(`❌ [AllenDataHub] API failed: ${vendorError}`);
           return res.status(502).json({ 
-            error: `Portal-02 order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+            error: `AllenDataHub order failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
             vendorError
           });
         }
       } catch (vendorErr) {
-        vendorError = vendorErr instanceof Error ? vendorErr.message : "Portal-02 API error";
-        req.log.error({ err: vendorErr }, `❌ [Portal-02] CRITICAL: Vendor API call failed: ${vendorError}`);
-        // For wallet, reject immediately
+        vendorError = vendorErr instanceof Error ? vendorErr.message : "AllenDataHub API error";
+        req.log.error({ err: vendorErr }, `❌ [AllenDataHub] CRITICAL: Vendor API call failed: ${vendorError}`);
         return res.status(502).json({ 
-          error: `Portal-02 communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
+          error: `AllenDataHub communication failed: ${vendorError}. Your wallet has NOT been charged. Please try again.`,
           vendorError
         });
       }
     }
     
-    // Validate phone number for Paystack orders too (but don't call Portal-02 yet)
+    // Validate phone number for Paystack orders too (vendor call happens later on webhook confirmation)
     if (!validatePhoneNumber(recipientPhone)) {
       req.log.error(`❌ Invalid phone number: ${recipientPhone}`);
       return res.status(400).json({ 
@@ -306,7 +307,7 @@ router.post("/:id/sync", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Vendor status is updated via Portal-02 webhook
+    // Vendor status is updated via AllenDataHub webhook
     // This endpoint just returns the current order status
     if (!order.vendorOrderId) {
       req.log.info(`Order has no vendor order ID. Order ID: ${order._id}`);

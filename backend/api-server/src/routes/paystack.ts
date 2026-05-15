@@ -4,7 +4,7 @@ import { Order } from "../models/Order";
 import { User } from "../models/User";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { Product } from "../models/Product";
-import portal02Service from "../lib/portal02";
+import allenDataHubService from "../lib/allendatahub";
 import { formatPhoneNumber, validatePhoneNumber } from "../lib/phone-utils";
 
 const router = Router();
@@ -109,24 +109,27 @@ router.post("/webhook", async (req: Request, res: Response) => {
             
             if (validatePhoneNumber(order.recipientPhone)) {
               const formattedPhone = formatPhoneNumber(order.recipientPhone);
-              req.log.info(`[Paystack Webhook] Calling Portal-02 for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
-              
-              const result = await portal02Service.purchaseDataBundle(
-                formattedPhone,
-                product.dataAmount,
-                product.network
-              );
-              
+              const volume = Number(String(product.dataAmount).replace(/\D/g, ""));
+              if (!volume || Number.isNaN(volume)) {
+                throw new Error(`Invalid data amount for AllenDataHub: ${product.dataAmount}`);
+              }
+              req.log.info(`[Paystack Webhook] Calling AllenDataHub for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
+
+              const result = await allenDataHubService.purchaseDataBundle({
+                phoneNumber: formattedPhone,
+                network: product.network,
+                volume,
+              });
+
               if (result && result.success) {
-                order.vendorOrderId = result.transactionId;
+                order.vendorOrderId = result.transactionId || result.orderId;
                 order.vendorReference = result.reference; // Store reference for webhook lookup
                 order.vendorProductId = vendorProductId;
                 order.vendorStatus = result.status || "pending";
                 order.status = "processing";
-                req.log.info(`✅ [Paystack Webhook] Portal-02 order created successfully. Vendor Order ID: ${result.transactionId}`);
+                req.log.info(`✅ [Paystack Webhook] AllenDataHub order created successfully. Vendor Order ID: ${order.vendorOrderId}`);
               } else {
-                req.log.warn(`❌ [Paystack Webhook] Portal-02 API failed: ${result?.error || "Unknown error"}`);
-                // Mark order as failed when Portal-02 fails (e.g., no balance, invalid phone)
+                req.log.warn(`❌ [Paystack Webhook] AllenDataHub API failed: ${result?.error || "Unknown error"}`);
                 order.status = "failed";
               }
             } else {
@@ -134,8 +137,8 @@ router.post("/webhook", async (req: Request, res: Response) => {
               order.status = "failed";
             }
           } catch (vendorErr) {
-            req.log.warn({ err: vendorErr }, `[Paystack Webhook] Portal-02 call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
-            // Mark order as failed if Portal-02 call fails
+            req.log.warn({ err: vendorErr }, `[Paystack Webhook] AllenDataHub call failed: ${vendorErr instanceof Error ? vendorErr.message : "unknown error"}`);
+            // Mark order as failed if AllenDataHub call fails
             order.status = "failed";
           }
         } else {

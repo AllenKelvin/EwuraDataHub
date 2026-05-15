@@ -1,4 +1,4 @@
-// Force redeploy - Backend URL fix for Portal-02 webhooks
+// Force redeploy - Backend URL fix for vendor webhook handling
 import app from "./app";
 import { logger } from "./lib/logger";
 

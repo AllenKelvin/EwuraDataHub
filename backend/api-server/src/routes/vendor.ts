@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import portal02Service from "../lib/portal02";
+import allenDataHubService from "../lib/allendatahub";
 import { Order } from "../models/Order";
 import { requireAuth } from "../lib/auth-middleware";
 
@@ -7,7 +7,7 @@ const router = Router();
 
 /**
  * POST /api/vendor/purchase
- * Purchase a data bundle from Portal-02
+ * Purchase a data bundle from AllenDataHub
  */
 router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -20,18 +20,17 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Create order with Portal-02
-    const result = await portal02Service.purchaseDataBundle(
+    // Create order with AllenDataHub
+    const result = await allenDataHubService.purchaseDataBundle({
       phoneNumber,
-      bundleSize,
       network,
-      user._id.toString()
-    );
+      volume: Number(bundleSize),
+    });
 
     if (!result || !result.success) {
       return res.status(400).json({
         error: result?.error || "Unknown error",
-        platform: result?.platform || "Portal-02.com",
+        platform: result?.platform || "AllenDataHub",
         details: result?.details || null,
       });
     }
@@ -40,7 +39,7 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
     const order = new Order({
       userId: user._id,
       username: user.username,
-      vendorOrderId: result.transactionId,
+      vendorOrderId: result.orderId || result.transactionId,
       vendorReference: result.reference, // Store reference for webhook lookup
       vendorProductId: `${network}_${bundleSize}`,
       vendorPhoneNumber: phoneNumber,
@@ -58,7 +57,7 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
 
     await order.save();
     req.log.info(
-      `Portal-02 order created. Order ID: ${order._id}, Portal-02 ID: ${result.transactionId}`
+      `AllenDataHub order created. Order ID: ${order._id}, Vendor ID: ${order.vendorOrderId}`
     );
 
     return res.status(201).json({
@@ -73,14 +72,14 @@ router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    req.log.error({ err }, "Portal-02 order error");
+    req.log.error({ err }, "AllenDataHub order error");
     return res.status(500).json({ error: "Server error" });
   }
 });
 
 /**
  * GET /api/vendor/orders
- * Get user's Portal-02 orders from database
+ * Get user's AllenDataHub orders from database
  */
 router.get("/orders", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -160,13 +159,13 @@ router.get("/orders/:vendorOrderId", requireAuth, async (req: Request, res: Resp
 router.post("/webhook", async (req: Request, res: Response) => {
   try {
     const rawPayload = req.body;
-    req.log.info({ payload: rawPayload }, "🔔 Portal-02 webhook received (raw)");
+    req.log.info({ payload: rawPayload }, "🔔 AllenDataHub webhook received (raw)");
 
-    // Process and validate webhook payload using portal02Service
-    const webhookResult = portal02Service.processWebhookPayload(rawPayload);
+    // Process and validate webhook payload using AllenDataHub
+    const webhookResult = allenDataHubService.processWebhookPayload(rawPayload);
     
     if (!webhookResult.success) {
-      req.log.warn(`[Portal-02 Webhook] Invalid payload: ${webhookResult.error}`);
+      req.log.warn(`[AllenDataHub Webhook] Invalid payload: ${webhookResult.error}`);
       return res.status(200).json({ received: true, status: "invalid_payload" });
     }
 
@@ -185,7 +184,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
       for (const query of lookupStrategies) {
         order = await Order.findOne(query);
         if (order) {
-          req.log.info(`[Portal-02 Webhook] Order found using strategy: ${JSON.stringify(query)}`);
+          req.log.info(`[AllenDataHub Webhook] Order found using strategy: ${JSON.stringify(query)}`);
           break;
         }
       }
@@ -193,23 +192,23 @@ router.post("/webhook", async (req: Request, res: Response) => {
       if (order) {
         const oldStatus = order.vendorStatus;
         
-        // Map Portal-02 statuses to internal statuses
+        // Map AllenDataHub statuses to internal statuses
         if (status === "delivered" || status === "resolved") {
           order.status = "completed";
           order.vendorStatus = "completed";
-          req.log.info(`✅ [Portal-02 Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
+          req.log.info(`✅ [AllenDataHub Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
         } else if (status === "failed" || status === "cancelled" || status === "refunded") {
           order.status = "failed";
           order.vendorStatus = "failed";
-          req.log.error(`❌ [Portal-02 Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
+          req.log.error(`❌ [AllenDataHub Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
         } else if (status === "processing") {
           order.status = "processing";
           order.vendorStatus = "processing";
-          req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
+          req.log.info(`⏳ [AllenDataHub Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
         } else if (status === "pending") {
           order.status = "processing"; // Map pending to processing for better UX
           order.vendorStatus = "pending";
-          req.log.info(`⏳ [Portal-02 Webhook] Order ${order._id} pending. Vendor ID: ${orderId}`);
+          req.log.info(`⏳ [AllenDataHub Webhook] Order ${order._id} pending. Vendor ID: ${orderId}`);
         }
 
         // Record webhook in history
@@ -221,19 +220,19 @@ router.post("/webhook", async (req: Request, res: Response) => {
         });
 
         await order.save();
-        req.log.info(`[Portal-02 Webhook] Order ${order._id} updated: ${oldStatus} → ${status}`);
+        req.log.info(`[AllenDataHub Webhook] Order ${order._id} updated: ${oldStatus} → ${status}`);
       } else {
-        req.log.warn(`[Portal-02 Webhook] ⚠️ No local order found for vendor order: ${orderId}. Reference: ${reference}. Tried lookups: ${JSON.stringify(lookupStrategies)}`);
-        req.log.warn(`[Portal-02 Webhook] Webhook payload for debugging:`, rawPayload);
+        req.log.warn(`[AllenDataHub Webhook] ⚠️ No local order found for vendor order: ${orderId}. Reference: ${reference}. Tried lookups: ${JSON.stringify(lookupStrategies)}`);
+        req.log.warn(`[AllenDataHub Webhook] Webhook payload for debugging:`, rawPayload);
       }
     } else {
-      req.log.warn(`[Portal-02 Webhook] Unknown event type: ${webhookResult.event}`);
+      req.log.warn(`[AllenDataHub Webhook] Unknown event type: ${webhookResult.event}`);
     }
 
     // Always respond with 200 to acknowledge receipt
     return res.status(200).json({ received: true });
   } catch (err) {
-    req.log.error({ err }, "Portal-02 webhook error");
+    req.log.error({ err }, "AllenDataHub webhook error");
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 });
@@ -244,15 +243,8 @@ router.post("/webhook", async (req: Request, res: Response) => {
  */
 router.get("/status", async (req: Request, res: Response) => {
   try {
-    if (!vendorClient) {
-      return res.json({
-        status: "offline",
-        message: "Vendor service not configured",
-      });
-    }
-
     // Try to fetch products to verify connection
-    const products = await vendorClient.getProducts();
+    const products = await allenDataHubService.getProducts();
 
     return res.json({
       status: "online",

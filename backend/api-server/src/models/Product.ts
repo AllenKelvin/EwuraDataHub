@@ -10,6 +10,7 @@ const ProductSchema = new mongoose.Schema({
   agentPrice: { type: Number, required: true },
   description: { type: String, required: true },
   vendorProductId: { type: String }, // Mapping to vendor product ID
+  vendor: { type: String, enum: ["portal02", "allendatahub"], default: "allendatahub" },
   productValue: { type: String }, // e.g., "1GB", "2GB"
 }, { timestamps: true, collection: "products" });
 
@@ -28,6 +29,7 @@ export interface IProduct {
   agentPrice: number;
   description: string;
   vendorProductId?: string;
+  vendor?: "portal02" | "allendatahub";
   productValue?: string;
   createdAt: Date;
   updatedAt: Date;
