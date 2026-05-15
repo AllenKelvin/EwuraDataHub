@@ -1,7 +1,8 @@
 import { normalizePhoneNumber } from "./phone-utils";
 
 const API_KEY = process.env.ALLENDATAHUB_API_KEY || "adh_live_m5bym0FLYL5V9k2sFem2nefru1QIOQdialtFftm_IQk";
-const BASE_URL = process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.com";
+const RAW_BASE_URL = process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.com";
+const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/i, "");
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 const DEFAULT_WEBHOOK_URL = `${BACKEND_URL.replace(/\/+$/, "")}/api/vendor/allen-datahub/webhook`;
 
@@ -71,6 +72,9 @@ function validateVolume(network: string, volume: number): boolean {
 
 function formatPhoneForAllenDataHub(phone: string): string {
   if (!phone) return phone;
+  if (phone.startsWith("+233") && phone.length === 13) {
+    return `0${phone.slice(4)}`;
+  }
   if (phone.startsWith("233") && phone.length === 12) {
     return `0${phone.slice(3)}`;
   }
