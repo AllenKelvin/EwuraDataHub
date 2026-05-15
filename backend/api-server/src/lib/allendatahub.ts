@@ -1,8 +1,11 @@
 import { normalizePhoneNumber } from "./phone-utils";
 
 const API_KEY = process.env.ALLENDATAHUB_API_KEY || "adh_live_orReuH_xt72-E4CppHK8G25cmtX0EE8_Orm_q6uMhso";
-const RAW_BASE_URL = process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.com";
-const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/i, "");
+const RAW_BASE_URL = process.env.ALLENDATAHUB_BASE_URL || "https://www.allendatahub.com";
+const BASE_URL = RAW_BASE_URL
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/i, "")
+  .replace(/^https?:\/\/allendatahub\.com/i, "https://www.allendatahub.com");
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 const DEFAULT_WEBHOOK_URL = `${BACKEND_URL.replace(/\/+$/, "")}/api/vendor/allen-datahub/webhook`;
 
@@ -157,7 +160,12 @@ class AllenDataHubService {
       webhookUrl: webhookUrl || DEFAULT_WEBHOOK_URL,
     };
 
+    // Debug: log the exact request URL and payload (without exposing API key)
     try {
+      const requestUrl = `${BASE_URL}/api/v1/data/purchase`;
+      console.info(`[AllenDataHub] Request URL: ${requestUrl}`);
+      console.info(`[AllenDataHub] Payload: ${JSON.stringify(payload)}`);
+
       const data = await fetchJson<AllenDataHubPurchaseResponse>("/api/v1/data/purchase", {
         method: "POST",
         headers: {
