@@ -115,10 +115,14 @@ router.post("/webhook", async (req: Request, res: Response) => {
               }
               req.log.info(`[Paystack Webhook] Calling AllenDataHub for order ${order._id}. Phone: ${order.recipientPhone} → ${formattedPhone}`);
 
+              const vendorProductId = product.vendorProductId;
+              if (!vendorProductId) {
+                throw new Error(`Missing vendor productId for AllenDataHub order`);
+              }
+
               const result = await allenDataHubService.purchaseDataBundle({
                 phoneNumber: formattedPhone,
-                network: product.network,
-                volume,
+                productId: vendorProductId,
               });
 
               if (result && result.success) {

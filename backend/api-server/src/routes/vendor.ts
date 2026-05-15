@@ -12,19 +12,20 @@ const router = Router();
 router.post("/purchase", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const { phoneNumber, bundleSize, network } = req.body;
+    const { phoneNumber, bundleSize, network, productId } = req.body;
 
-    if (!phoneNumber || !bundleSize || !network) {
+    if (!phoneNumber || (!bundleSize && !productId) || (!network && !productId)) {
       return res.status(400).json({
-        error: "Missing required fields: phoneNumber, bundleSize, network",
+        error: "Missing required fields: phoneNumber and either productId or (bundleSize and network)",
       });
     }
 
     // Create order with AllenDataHub
     const result = await allenDataHubService.purchaseDataBundle({
       phoneNumber,
+      productId,
       network,
-      volume: Number(bundleSize),
+      volume: bundleSize ? Number(bundleSize) : undefined,
     });
 
     if (!result || !result.success) {

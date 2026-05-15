@@ -23,8 +23,9 @@ export interface AllenDataHubProduct {
 
 export interface AllenDataHubPurchaseRequest {
   phoneNumber: string;
-  network: string;
-  volume: number;
+  productId?: string;
+  network?: string;
+  volume?: number;
   webhookUrl?: string;
 }
 
@@ -107,11 +108,45 @@ class AllenDataHubService {
     return data.products || [];
   }
 
-  async purchaseDataBundle({ phoneNumber, network, volume, webhookUrl }: AllenDataHubPurchaseRequest): Promise<AllenDataHubPurchaseResponse> {
-    if (!phoneNumber || !network || !volume) {
+  async purchaseDataBundle({ phoneNumber, productId, network, volume, webhookUrl }: AllenDataHubPurchaseRequest): Promise<AllenDataHubPurchaseResponse> {
+    if (!phoneNumber) {
       return {
         success: false,
-        error: "Missing required fields: phoneNumber, network, volume",
+        error: "Missing required field: phoneNumber",
+      };
+    }
+
+    const normalized = normalizePhoneNumber(phoneNumber);
+    if (!normalized.success || !normalized.formatted) {
+      return {
+        success: false,
+        error: normalized.error || "Invalid phone number",
+      };
+    }
+
+    if (productId) {
+      const payload: Record<string, any> = {
+        phoneNumber: normalized.formatted,
+        productId,
+        webhookUrl: webhookUrl || DEFAULT_WEBHOOK_URL,
+      };
+
+      const data = await fetchJson<AllenDataHubPurchaseResponse>("/api/v1/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      return data;
+    }
+
+    if (!network || !volume) {
+      return {
+        success: false,
+        error: "Missing required fields: network, volume",
       };
     }
 
@@ -126,14 +161,6 @@ class AllenDataHubService {
       return {
         success: false,
         error: `Unsupported volume ${volume} for network ${network}`,
-      };
-    }
-
-    const normalized = normalizePhoneNumber(phoneNumber);
-    if (!normalized.success || !normalized.formatted) {
-      return {
-        success: false,
-        error: normalized.error || "Invalid phone number",
       };
     }
 
