@@ -69,6 +69,14 @@ function validateVolume(network: string, volume: number): boolean {
   return supportedVolumes[network]?.includes(volume) ?? false;
 }
 
+function formatPhoneForAllenDataHub(phone: string): string {
+  if (!phone) return phone;
+  if (phone.startsWith("233") && phone.length === 12) {
+    return `0${phone.slice(3)}`;
+  }
+  return phone;
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, init);
   const text = await response.text();
@@ -139,7 +147,7 @@ class AllenDataHubService {
     }
 
     const payload = {
-      phoneNumber: normalized.formatted,
+      phoneNumber: formatPhoneForAllenDataHub(normalized.formatted),
       network,
       volume,
       webhookUrl: webhookUrl || DEFAULT_WEBHOOK_URL,
