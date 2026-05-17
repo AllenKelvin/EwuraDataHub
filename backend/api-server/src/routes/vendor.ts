@@ -6,6 +6,31 @@ import { requireAuth } from "../lib/auth-middleware";
 
 const router = Router();
 
+function normalizeAllenDataHubStatus(status?: string | null) {
+  if (!status) {
+    return { mappedStatus: undefined, vendorStatus: undefined };
+  }
+
+  const normalized = String(status).trim().toLowerCase();
+  const completedStatuses = new Set(["delivered", "resolved", "success", "complete", "completed", "fulfilled"]);
+  const failedStatuses = new Set(["failed", "cancelled", "canceled", "refunded", "error", "rejected"]);
+  const processingStatuses = new Set(["processing", "in_progress", "in-progress", "running", "started"]);
+  const pendingStatuses = new Set(["pending", "queued", "waiting", "submitted", "received"]);
+
+  let mappedStatus: "pending" | "processing" | "completed" | "failed" | undefined;
+  if (completedStatuses.has(normalized)) {
+    mappedStatus = "completed";
+  } else if (failedStatuses.has(normalized)) {
+    mappedStatus = "failed";
+  } else if (processingStatuses.has(normalized)) {
+    mappedStatus = "processing";
+  } else if (pendingStatuses.has(normalized)) {
+    mappedStatus = "pending";
+  }
+
+  return { mappedStatus, vendorStatus: normalized };
+}
+
 /**
  * POST /api/vendor/purchase
  * Purchase a data bundle from AllenDataHub
@@ -189,63 +214,57 @@ router.post("/webhook", async (req: Request, res: Response) => {
     }
 
     const { orderId, reference, status } = webhookResult;
-    
-    if (webhookResult.event === "order.status.updated" || webhookResult.event === "order.status_update" || webhookResult.event === "order.updated" || webhookResult.event === "status.updated") {
-      // Find order using multiple lookup strategies (in order of priority)
-      let order = null;
-      const lookupStrategies = [
-        { vendorOrderId: orderId },                    // Primary: by vendor order ID
-        { vendorReference: reference },               // Secondary: by vendor reference
-        { paymentReference: reference },              // Tertiary: by payment reference
-        { vendorOrderId: reference },                 // Fallback: reference might be the orderId
-      ];
+    const { mappedStatus, vendorStatus } = normalizeAllenDataHubStatus(status);
 
-      for (const query of lookupStrategies) {
-        order = await Order.findOne(query);
-        if (order) {
-          req.log.info(`[AllenDataHub Webhook] Order found using strategy: ${JSON.stringify(query)}`);
-          break;
-        }
-      }
+    if (!mappedStatus || (!orderId && !reference)) {
+      req.log.warn(`[AllenDataHub Webhook] Ignored webhook because status or order reference could not be determined: event=${webhookResult.event}, status=${status}, orderId=${orderId}, reference=${reference}`);
+      return res.status(200).json({ received: true, status: "ignored" });
+    }
 
+    // Find order using multiple lookup strategies (in order of priority)
+    let order = null;
+    const lookupStrategies = [
+      { vendorOrderId: orderId },                    // Primary: by vendor order ID
+      { vendorReference: reference },               // Secondary: by vendor reference
+      { paymentReference: reference },              // Tertiary: by payment reference
+      { vendorOrderId: reference },                 // Fallback: reference might be the orderId
+    ];
+
+    for (const query of lookupStrategies) {
+      order = await Order.findOne(query);
       if (order) {
-        const oldStatus = order.vendorStatus;
-        
-        // Map AllenDataHub statuses to internal statuses
-        if (status === "delivered" || status === "resolved") {
-          order.status = "completed";
-          order.vendorStatus = "completed";
-          req.log.info(`✅ [AllenDataHub Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
-        } else if (status === "failed" || status === "cancelled" || status === "refunded") {
-          order.status = "failed";
-          order.vendorStatus = "failed";
-          req.log.error(`❌ [AllenDataHub Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
-        } else if (status === "processing") {
-          order.status = "processing";
-          order.vendorStatus = "processing";
-          req.log.info(`⏳ [AllenDataHub Webhook] Order ${order._id} processing. Vendor ID: ${orderId}`);
-        } else if (status === "pending") {
-          order.status = "processing"; // Map pending to processing for better UX
-          order.vendorStatus = "pending";
-          req.log.info(`⏳ [AllenDataHub Webhook] Order ${order._id} pending. Vendor ID: ${orderId}`);
-        }
-
-        // Record webhook in history
-        if (!order.webhookHistory) order.webhookHistory = [];
-        order.webhookHistory.push({
-          status,
-          timestamp: webhookResult.timestamp,
-          rawPayload: rawPayload,
-        });
-
-        await order.save();
-        req.log.info(`[AllenDataHub Webhook] Order ${order._id} updated: ${oldStatus} → ${status}`);
-      } else {
-        req.log.warn(`[AllenDataHub Webhook] ⚠️ No local order found for vendor order: ${orderId}. Reference: ${reference}. Tried lookups: ${JSON.stringify(lookupStrategies)}`);
-        req.log.warn(`[AllenDataHub Webhook] Webhook payload for debugging:`, rawPayload);
+        req.log.info(`[AllenDataHub Webhook] Order found using strategy: ${JSON.stringify(query)}`);
+        break;
       }
+    }
+
+    if (order) {
+      const oldStatus = order.vendorStatus || order.status;
+
+      order.vendorStatus = mappedStatus;
+      if (mappedStatus === "completed") {
+        order.status = "completed";
+        req.log.info(`✅ [AllenDataHub Webhook] Order ${order._id} completed. Vendor ID: ${orderId}`);
+      } else if (mappedStatus === "failed") {
+        order.status = "failed";
+        req.log.error(`❌ [AllenDataHub Webhook] Order ${order._id} failed. Vendor ID: ${orderId}. Reason: ${status}`);
+      } else {
+        order.status = "processing";
+        req.log.info(`⏳ [AllenDataHub Webhook] Order ${order._id} status updated to processing. Vendor ID: ${orderId}`);
+      }
+
+      if (!order.webhookHistory) order.webhookHistory = [];
+      order.webhookHistory.push({
+        status: vendorStatus,
+        timestamp: webhookResult.timestamp,
+        rawPayload,
+      });
+
+      await order.save();
+      req.log.info(`[AllenDataHub Webhook] Order ${order._id} updated: ${oldStatus} → ${order.status} (${vendorStatus})`);
     } else {
-      req.log.warn(`[AllenDataHub Webhook] Unknown event type: ${webhookResult.event}`);
+      req.log.warn(`[AllenDataHub Webhook] ⚠️ No local order found for vendor order: ${orderId}. Reference: ${reference}. Tried lookups: ${JSON.stringify(lookupStrategies)}`);
+      req.log.warn(`[AllenDataHub Webhook] Webhook payload for debugging:`, rawPayload);
     }
 
     // Always respond with 200 to acknowledge receipt

@@ -294,6 +294,31 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
  * POST /api/orders/:id/sync
  * Sync order status with vendor API
  */
+function normalizeVendorStatus(status?: string | null) {
+  if (!status) {
+    return { mappedStatus: undefined, rawStatus: undefined };
+  }
+
+  const normalized = String(status).trim().toLowerCase();
+  const completedStatuses = new Set(["delivered", "resolved", "success", "complete", "completed", "fulfilled"]);
+  const failedStatuses = new Set(["failed", "cancelled", "canceled", "refunded", "error", "rejected"]);
+  const processingStatuses = new Set(["processing", "in_progress", "in-progress", "running", "started"]);
+  const pendingStatuses = new Set(["pending", "queued", "waiting", "submitted", "received"]);
+
+  let mappedStatus: "pending" | "processing" | "completed" | "failed" | undefined;
+  if (completedStatuses.has(normalized)) {
+    mappedStatus = "completed";
+  } else if (failedStatuses.has(normalized)) {
+    mappedStatus = "failed";
+  } else if (processingStatuses.has(normalized)) {
+    mappedStatus = "processing";
+  } else if (pendingStatuses.has(normalized)) {
+    mappedStatus = "pending";
+  }
+
+  return { mappedStatus, rawStatus: normalized };
+}
+
 router.post("/:id/sync", requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -307,8 +332,6 @@ router.post("/:id/sync", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Vendor status is updated via AllenDataHub webhook
-    // This endpoint just returns the current order status
     if (!order.vendorOrderId) {
       req.log.info(`Order has no vendor order ID. Order ID: ${order._id}`);
       return res.json({
@@ -317,11 +340,51 @@ router.post("/:id/sync", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    req.log.info(`Order status query. Order ID: ${order._id}, Status: ${order.status}, Vendor Status: ${order.vendorStatus}`);
-    return res.json({
-      message: "Vendor status (updated via webhook)",
-      order: formatOrder(order),
-    });
+    req.log.info(`Order status sync requested. Order ID: ${order._id}, Vendor Order ID: ${order.vendorOrderId}`);
+
+    try {
+      const vendorData = await allenDataHubService.getOrder(order.vendorOrderId);
+      const vendorStatus = vendorData?.status || vendorData?.state || vendorData?.vendorStatus || vendorData?.orderStatus || vendorData?.statusCode;
+      const vendorReference = vendorData?.reference || vendorData?.requestId || vendorData?.vendorReference || vendorData?.clientOrderReference || vendorData?.transactionId;
+      const { mappedStatus, rawStatus } = normalizeVendorStatus(vendorStatus);
+
+      if (vendorReference) {
+        order.vendorReference = vendorReference;
+      }
+
+      if (mappedStatus) {
+        order.vendorStatus = mappedStatus;
+        if (mappedStatus === "completed") {
+          order.status = "completed";
+        } else if (mappedStatus === "failed") {
+          order.status = "failed";
+        } else {
+          order.status = "processing";
+        }
+      }
+
+      if (!order.webhookHistory) order.webhookHistory = [];
+      order.webhookHistory.push({
+        status: rawStatus || String(vendorStatus || ""),
+        timestamp: new Date(),
+        rawPayload: vendorData,
+      });
+
+      await order.save();
+      req.log.info(`Order status refreshed from vendor. Order ID: ${order._id}, Local Status: ${order.status}, Vendor Status: ${order.vendorStatus}`);
+
+      return res.json({
+        message: "Vendor status refreshed",
+        order: formatOrder(order),
+        vendorData,
+      });
+    } catch (vendorErr) {
+      req.log.error({ err: vendorErr }, "Vendor sync failed");
+      return res.status(502).json({
+        error: vendorErr instanceof Error ? vendorErr.message : "Failed to fetch vendor order status",
+        order: formatOrder(order),
+      });
+    }
   } catch (err) {
     req.log.error({ err }, "Sync order error");
     return res.status(500).json({ error: "Server error" });
