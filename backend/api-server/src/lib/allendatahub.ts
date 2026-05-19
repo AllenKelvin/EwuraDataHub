@@ -9,6 +9,20 @@ const BASE_URL = RAW_BASE_URL
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 const DEFAULT_WEBHOOK_URL = `${BACKEND_URL.replace(/\/+$/, "")}/api/vendor/allen-datahub/webhook`;
 
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.BACKEND_URL) {
+    console.error(
+      "🚨 CRITICAL: BACKEND_URL is not set in production! AllenDataHub webhooks will fail silently.\n" +
+      "Set BACKEND_URL environment variable to your production backend domain (e.g., https://api.yourdomain.com)"
+    );
+  } else if (BACKEND_URL.includes("localhost")) {
+    console.error(
+      "🚨 CRITICAL: BACKEND_URL contains 'localhost' in production! AllenDataHub cannot send webhooks to localhost.\n" +
+      "Update BACKEND_URL to your production backend domain."
+    );
+  }
+}
+
 const supportedNetworks = ["MTN", "Telecel", "AirtelTigo"];
 const supportedVolumes: Record<string, number[]> = {
   MTN: [1, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 40, 50, 100],
@@ -82,6 +96,19 @@ function formatPhoneForAllenDataHub(phone: string): string {
     return `0${phone.slice(3)}`;
   }
   return phone;
+}
+
+function getWebhookPayloadSource(payload: Record<string, any>): Record<string, any> {
+  if (payload?.data && typeof payload.data === "object") {
+    return payload.data;
+  }
+  if (payload?.payload && typeof payload.payload === "object") {
+    return payload.payload;
+  }
+  if (payload?.body && typeof payload.body === "object") {
+    return payload.body;
+  }
+  return payload;
 }
 
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -227,16 +254,18 @@ class AllenDataHubService {
       return { success: false, error: "Empty webhook payload" };
     }
 
-    const event = payload.webhookEvent || payload.event || payload.type || "unknown";
-    const orderId = payload.orderId || payload.vendorOrderId || payload.order_id || payload.transactionId;
-    const reference = payload.reference || payload.requestId || payload.clientOrderReference || payload.vendorReference;
-    const status = payload.status || payload.vendorStatus || payload.state || payload.statusCode;
+    const source = getWebhookPayloadSource(payload);
+    const event = source.webhookEvent || source.event || source.type || payload.webhookEvent || payload.event || payload.type || "unknown";
+    const orderId = source.orderId || source.vendorOrderId || source.order_id || source.transactionId || source.reference || source.clientOrderReference || source.vendorReference || payload.orderId || payload.vendorOrderId || payload.order_id || payload.transactionId;
+    const reference = source.reference || source.requestId || source.clientOrderReference || source.vendorReference || source.orderId || source.vendorOrderId || payload.reference || payload.requestId || payload.clientOrderReference || payload.vendorReference;
+    const status = source.status || source.vendorStatus || source.state || source.statusCode || source.orderStatus || source.currentStatus || payload.status || payload.vendorStatus || payload.state || payload.statusCode;
 
     if (!orderId && !reference) {
       return { success: false, error: "Missing orderId or reference in webhook payload" };
     }
 
-    const timestamp = payload.timestamp ? new Date(payload.timestamp) : new Date();
+    const timestampValue = source.timestamp || source.updatedAt || payload.timestamp || payload.updatedAt;
+    const timestamp = timestampValue ? new Date(timestampValue) : new Date();
 
     return {
       success: true,
@@ -246,8 +275,8 @@ class AllenDataHubService {
       reference,
       status: status?.toString(),
       webhookEvent: event,
-      phoneNumber: payload.phoneNumber || payload.recipientPhone || payload.msisdn,
-      dataAmount: payload.dataAmount || payload.volume || payload.bundleSize,
+      phoneNumber: source.phoneNumber || source.recipientPhone || source.msisdn || source.msisdn || payload.phoneNumber || payload.recipientPhone || payload.msisdn,
+      dataAmount: source.dataAmount || source.volume || source.bundleSize || source.dataAmount || source.volume || source.bundleSize,
       timestamp,
       raw: payload,
     };
