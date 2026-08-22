@@ -5,7 +5,7 @@ export const insertUserSchema = z
     username: z.string().min(3, "Username must be at least 3 characters"),
     email: z.string().email("Valid email address is required"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be 10 digits').optional(),
+    phoneNumber: z.string().regex(/^\d{10}$/, 'Phone number must be 10 digits'),
     role: z.enum(["admin", "agent", "user"]).optional(),
   });
 

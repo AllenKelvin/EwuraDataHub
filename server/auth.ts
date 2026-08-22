@@ -1,5 +1,5 @@
 import { type Express } from "express";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 // Use native bcrypt (handles both $2a$ and $2b$ hashes)
@@ -21,31 +21,29 @@ const resetTokens: Map<string, { token: string; expiry: number; email: string }>
 
 // EXPORT hashPassword
 export async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  return bcrypt.hash(password, 12);
 }
 
 // EXPORT comparePassword
 export async function comparePassword(supplied: string, stored: string) {
   if (!stored) return false;
 
-  // Format 1: scrypt format (hex.salt)
+  // Format 1: bcrypt/bcryptjs ($2a$, $2b$, $2y$)
+  if (/^\$2[aby]\$/.test(stored)) {
+    try {
+      return await bcrypt.compare(supplied, stored);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Format 2: legacy scrypt format (hex.salt)
   if (stored.includes('.')) {
     try {
       const [hashed, salt] = stored.split(".");
       const hashedPasswordBuf = Buffer.from(hashed, "hex");
       const suppliedPasswordBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
       return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Format 2: bcrypt/bcryptjs ($2a$, $2b$, $2y$)
-  if (/^\$2[aby]\$/.test(stored)) {
-    try {
-      return await bcrypt.compare(supplied, stored);
     } catch (e) {
       return false;
     }
@@ -99,7 +97,7 @@ export function setupAuth(app: Express) {
       if (!matched) return res.status(401).json({ message: "Invalid username or password" });
 
       // Auto-migrate legacy passwords
-      if (typeof user.password === 'string' && !user.password.includes('.')) {
+      if (typeof user.password === 'string' && !/^\$2[aby]\$/.test(user.password)) {
         const newHash = await hashPassword(password);
         const uid = (user as any).id || (user as any)._id?.toString();
         if (uid) await storage.updatePassword(uid, newHash);
@@ -150,6 +148,10 @@ export function setupAuth(app: Express) {
       // Validate username is provided
       if (!userData.username || userData.username.length < 3) {
         return res.status(400).json({ message: "Username must be at least 3 characters" });
+      }
+
+      if (!/^\d{10}$/.test(String(userData.phoneNumber || ""))) {
+        return res.status(400).json({ message: "Phone number must be 10 digits" });
       }
 
       // Check for existing user
