@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const MAX_API_PURCHASES_PER_MINUTE = 20;
 
   function getNewAppFrontendUrl(): string {
-    return (process.env.NEW_APP_FRONTEND_URL || process.env.FRONTEND_URL || process.env.APP_URL || "https://allendatahub.com").replace(/\/+$/, "");
+    return (process.env.FRONTEND_URL || process.env.APP_URL || "https://ewuradatahub.com").replace(/\/+$/, "");
   }
 
   function getNewAppCallbackUrl(): string {
@@ -569,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const amount = Number(req.body?.amount ?? 0);
     const providedEmail = typeof req.body?.email === "string" ? req.body.email.trim() : "";
     const metadata = {
-      project: "NEW_APP",
+      project: "EWURA_DATA_HUB",
       userId,
       ...(req.body?.metadata || {}),
     };
@@ -692,17 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = payload.data;
       const metadata = data.metadata || {};
       const paymentReference = data.reference;
-      const isNewApp =
-        (typeof paymentReference === "string" && paymentReference.startsWith("NEWAPP_")) ||
-        metadata.project === "NEW_APP";
-
       console.log(`[Webhook] Event: ${event}, Amount: ${data.amount}, Status: ${data.status}`);
-
-      if (event === "charge.success" && isNewApp) {
-        console.log(`[Webhook] NEW_APP payment detected. Reference: ${paymentReference}, project: ${metadata.project}`);
-        void forwardNewAppPaystackSuccess(data);
-        return res.status(200).json({ status: true, message: "Paystack webhook received" });
-      }
 
       // Idempotency check: check if this payment reference was already processed
       if (paymentReference) {
