@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "npx tsx scripts/build.ts",
+    "build": "tsx scripts/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc"
   },
@@ -52,6 +52,7 @@
     "embla-carousel-react": "^8.6.0",
     "express": "^5.0.1",
     "express-session": "^1.18.1",
+    "esbuild": "^0.25.0",
     "framer-motion": "^11.18.2",
     "input-otp": "^1.4.2",
     "jsonwebtoken": "^9.0.3",
@@ -75,6 +76,7 @@
     "vaul": "^1.1.2",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
+    "tsx": "^4.20.5",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
   },
@@ -99,10 +101,8 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "cookie-parser": "^1.4.7",
-    "esbuild": "^0.25.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.20.5",
     "typescript": "5.6.3",
     "vite": "^7.3.0"
   },
