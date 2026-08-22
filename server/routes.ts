@@ -627,6 +627,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/payments/verify", verifyJWT, async (req, res) => {
+    const user = (req as any).user;
+    const reference = String(req.body?.reference || "").trim();
+    if (!reference) return res.status(400).json({ message: "Payment reference is required" });
+
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
+    if (!paystackSecret) return res.status(500).json({ message: "Paystack not configured" });
+
+    try {
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { Authorization: `Bearer ${paystackSecret}` },
+      });
+      const payload = await response.json();
+      const data = payload?.data;
+      const metadata = data?.metadata || {};
+      if (!response.ok || payload?.status !== true || data?.status !== "success") {
+        return res.status(400).json({ message: payload?.message || "Payment has not been confirmed" });
+      }
+      if (metadata.type !== "wallet" || String(metadata.agentId) !== String(user.id)) {
+        return res.status(403).json({ message: "Payment does not belong to this wallet" });
+      }
+
+      const amountGhs = Number(data.amount) / 100;
+      const amountAfterFee = Number((amountGhs * 0.96).toFixed(2));
+      const updated = await User.findOneAndUpdate(
+        { _id: user.id, "paymentReferenceHistory.reference": { $ne: reference } },
+        { $inc: { balance: amountAfterFee }, $push: { paymentReferenceHistory: {
+          reference, amount: amountAfterFee, project: "EWURA_DATA_HUB", fulfilledAt: new Date(),
+        } } },
+        { new: true },
+      ).lean();
+      const current = updated || await User.findById(user.id).lean();
+      return res.json({ status: true, alreadyCredited: !updated, amount: amountAfterFee, balance: current?.balance ?? 0 });
+    } catch (error: any) {
+      console.error("[Paystack] verification failed", error);
+      return res.status(500).json({ message: "Payment verification failed" });
+    }
+  });
+
   app.post("/api/paystack/webhook", async (req, res) => {
     const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
     if (!paystackSecret) {
