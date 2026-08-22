@@ -346,8 +346,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user?.role !== "admin") {
       return res.status(403).send({ message: "Forbidden" });
     }
-    const agents = await storage.getAllAgents();
-    res.json(agents);
+    try {
+      const agents = await storage.getAllAgents();
+      res.json(agents);
+    } catch (err: any) {
+      console.error("[Admin] Failed to list agents", err);
+      res.status(500).json({ message: "Failed to fetch agents" });
+    }
   });
 
   // Verify Agent (Admin only)
@@ -1264,31 +1269,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user?.role !== "admin") {
       return res.status(403).send({ message: "Forbidden" });
     }
-    const page = Math.max(1, parseInt(String(req.query.page)) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit)) || 50));
-    const { orders: rawOrders, pagination } = await (storage as any).getAllOrders(page, limit);
-    const { Product } = await import('./models/product');
-    const { User } = await import('./models/user');
-    const enriched = await Promise.all(
-      rawOrders.map(async (order: any) => {
-        const product = await Product.findById(order.productId).lean();
-        const orderUser = await User.findById(order.userId).select('username role').lean();
-        return {
-          ...order,
-          productName: order.productName || product?.name || 'Unknown',
-          productNetwork: product?.network || '',
-          dataAmount: order.dataAmount || product?.dataAmount,
-          phoneNumber: order.phoneNumber,
-          createdAt: order.createdAt,
-          status: order.status,
-          price: order.price,
-          buyerUsername: orderUser?.username,
-          buyerRole: orderUser?.role,
-        };
-      })
-    );
-    const totalSpent = enriched.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
-    res.json({ orders: enriched, totalSpent, pagination });
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page)) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit)) || 50));
+      const { orders: rawOrders, pagination } = await (storage as any).getAllOrders(page, limit);
+      const { Product } = await import('./models/product');
+      const { User } = await import('./models/user');
+      const enriched = await Promise.all(
+        rawOrders.map(async (order: any) => {
+          const [product, orderUser] = await Promise.all([
+            mongoose.Types.ObjectId.isValid(order.productId) ? Product.findById(order.productId).lean() : null,
+            mongoose.Types.ObjectId.isValid(order.userId) ? User.findById(order.userId).select('username role').lean() : null,
+          ]);
+          return {
+            ...order,
+            productName: order.productName || product?.name || 'Unknown',
+            productNetwork: product?.network || '',
+            dataAmount: order.dataAmount || product?.dataAmount,
+            phoneNumber: order.phoneNumber,
+            createdAt: order.createdAt,
+            status: order.status,
+            price: order.price,
+            buyerUsername: orderUser?.username,
+            buyerRole: orderUser?.role,
+          };
+        })
+      );
+      const totalSpent = enriched.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
+      res.json({ orders: enriched, totalSpent, pagination });
+    } catch (err: any) {
+      console.error("[Admin] Failed to list orders", err);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
   });
 
   // Admin: update order status (Admin only)
