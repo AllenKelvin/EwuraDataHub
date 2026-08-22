@@ -982,7 +982,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { productId, quantity, phoneNumber } = req.body;
     console.log(`[Cart/Add] Request - userId: ${userId}, productId: ${productId}, quantity: ${quantity}, phoneNumber: ${phoneNumber}`);
     if (!productId) return res.status(400).json({ message: 'productId required' });
-    await storage.addToCart(userId, productId, quantity || 1, phoneNumber);
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: 'Invalid productId' });
+    }
+    if (!/^\d{10}$/.test(String(phoneNumber || ''))) {
+      return res.status(400).json({ message: 'A valid 10-digit phone number is required' });
+    }
+    const quantityValue = Number(quantity || 1);
+    if (!Number.isInteger(quantityValue) || quantityValue < 1) {
+      return res.status(400).json({ message: 'quantity must be a positive integer' });
+    }
+    await storage.addToCart(userId, productId, quantityValue, phoneNumber);
     const cart = await storage.getCart(userId);
     console.log(`[Cart/Add] Cart after add: ${JSON.stringify(cart)}`);
     const populated = await Promise.all(
@@ -1271,7 +1281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resp = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amountToCharge, email: user.email, currency: "GHS", metadata: { type: "order", userId: user._id.toString(), productId } }),
+        body: JSON.stringify({ amount: Math.round(amountToCharge * 100), email: user.email, currency: "GHS", metadata: { type: "order", userId: user._id.toString(), productId } }),
       });
       const data = await resp.json();
       res.json(data);
