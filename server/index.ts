@@ -23,6 +23,8 @@ const allowedOrigins = [
   "https://allen-data-hub.vercel.app",
   "https://allendatahub.com", // Custom domain
   "https://www.allendatahub.com", // Custom domain with www
+  "https://ewuradatahub.com", // Production frontend
+  "https://www.ewuradatahub.com", // Production frontend with www
   "https://allendatahub-nuxs029gu-allen-kelvins-projects.vercel.app", // Vercel deployment URL
   "http://localhost:5173", // Dev
   process.env.FRONTEND_URL, // For Render deployment
