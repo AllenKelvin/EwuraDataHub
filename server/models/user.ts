@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    phoneNumber: { type: String, required: true, match: /^\d{10}$/ },
+    phoneNumber: { type: String, required: false, default: null, match: /^\d{10}$/ },
     password: { type: String, required: true },
     role: { type: String, enum: ["admin", "agent", "user"], default: "user" },
     isVerified: { type: Boolean, default: false },
@@ -13,7 +13,7 @@ const UserSchema = new mongoose.Schema(
       {
         reference: { type: String, required: true },
         amount: { type: Number, default: 0 },
-        project: { type: String, default: "NEW_APP" },
+        project: { type: String, default: "EWURA_DATA_HUB" },
         fulfilledAt: { type: Date, default: Date.now },
       },
     ],

@@ -135,23 +135,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const apiPurchaseRateLimits = new Map<string, { count: number; reset: number }>();
   const MAX_API_PURCHASES_PER_MINUTE = 20;
 
-  function getNewAppFrontendUrl(): string {
+  function getFrontendUrl(): string {
     return (process.env.FRONTEND_URL || process.env.APP_URL || "https://ewuradatahub.com").replace(/\/+$/, "");
   }
 
-  function getNewAppCallbackUrl(): string {
-    return `${getNewAppFrontendUrl()}/payment-complete`;
-  }
-
-  function buildNewAppReference(userId: string): string {
+  function buildPaymentReference(userId: string): string {
     const safeUserId = String(userId || "unknown").replace(/[^a-zA-Z0-9_-]/g, "") || "unknown";
-    return `NEWAPP_${Date.now()}_${safeUserId}`;
+    return `EWURA_${Date.now()}_${safeUserId}`;
   }
 
-  function buildNewAppEmail(user: any, userId?: string, phoneNumber?: string): string {
+  function buildPaymentEmail(user: any, userId?: string, phoneNumber?: string): string {
     const fallbackUser = userId || user?.id || user?._id || phoneNumber || "anonymous";
-    const seed = String(fallbackUser).replace(/[^a-zA-Z0-9]/g, "") || "newapp";
-    return `${seed}@newapp.com`;
+    const seed = String(fallbackUser).replace(/[^a-zA-Z0-9]/g, "") || "ewura";
+    return `${seed}@ewuradatahub.com`;
   }
 
   function rateLimitApiPurchase(req: any, res: any, next: any) {
@@ -560,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === PRODUCT ROUTES ===
 
-  // Paystack initialize for NEW_APP project payments
+  // Paystack initialize for EwuraDataHub wallet payments
   app.post("/api/payments/initialize", verifyJWT, async (req, res) => {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ message: "Unauthorized" });
@@ -583,9 +579,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Paystack not configured" });
     }
 
-    const email = providedEmail && providedEmail.includes("@") ? providedEmail : buildNewAppEmail(user, userId, user.phoneNumber);
-    const reference = buildNewAppReference(userId || user.phoneNumber || "anonymous");
-    const callback_url = getNewAppCallbackUrl();
+    const email = providedEmail && providedEmail.includes("@") ? providedEmail : buildPaymentEmail(user, userId, user.phoneNumber);
+    const reference = buildPaymentReference(userId || user.phoneNumber || "anonymous");
+    const callback_url = `${getFrontendUrl()}/payment-complete`;
 
     try {
       const response = await fetch("https://api.paystack.co/transaction/initialize", {
@@ -630,42 +626,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Paystack initialization failed" });
     }
   });
-
-  // Paystack webhook
-  async function forwardNewAppPaystackSuccess(data: any) {
-    const newAppBackendUrl = process.env.NEW_APP_BACKEND_URL;
-    const bridgeSecret = process.env.INTERNAL_BRIDGE_SECRET;
-
-    if (!newAppBackendUrl) {
-      console.error("[Webhook] NEW_APP forwarding failed: NEW_APP_BACKEND_URL is not configured.");
-      return;
-    }
-    if (!bridgeSecret) {
-      console.error("[Webhook] NEW_APP forwarding failed: INTERNAL_BRIDGE_SECRET is not configured.");
-      return;
-    }
-
-    const forwardUrl = `${newAppBackendUrl.replace(/\/+$/, "")}/api/internal/paystack-success`;
-    try {
-      const response = await fetch(forwardUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-secret": bridgeSecret,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const bodyText = await response.text().catch(() => "<no response body>");
-        console.error(`[Webhook] NEW_APP forward failed (${response.status}): ${bodyText}`);
-      } else {
-        console.log(`[Webhook] NEW_APP paystack success forwarded to ${forwardUrl}`);
-      }
-    } catch (forwardErr) {
-      console.error("[Webhook] Failed forwarding NEW_APP paystack success:", forwardErr);
-    }
-  }
 
   app.post("/api/paystack/webhook", async (req, res) => {
     const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
@@ -715,10 +675,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const adminFee = amountInGHS * 0.04; // 4% admin fee
             const amountAfterFee = amountInGHS - adminFee;
             console.log(`[Webhook] Wallet topup for agent ${agentId}. Amount: ${amountInGHS} GHS, Admin Fee (4%): ${adminFee.toFixed(2)} GHS, Net Credit: ${amountAfterFee.toFixed(2)} GHS`);
-            const beforeUser = await (storage as any).getUser(agentId);
-            const beforeBal = Number((beforeUser && (beforeUser as any).balance) ?? 0);
-            const updated = await (storage as any).creditAgentBalance(agentId, amountAfterFee);
+            const updated = await User.findOneAndUpdate(
+              { _id: agentId, "paymentReferenceHistory.reference": { $ne: paymentReference } },
+              {
+                $inc: { balance: amountAfterFee },
+                $push: {
+                  paymentReferenceHistory: {
+                    reference: paymentReference,
+                    amount: amountAfterFee,
+                    project: "EWURA_DATA_HUB",
+                    fulfilledAt: new Date(),
+                  },
+                },
+              },
+              { new: true },
+            ).lean();
+            if (!updated) {
+              console.log(`[Webhook] Duplicate or unknown wallet payment: ${paymentReference}`);
+              return res.status(200).json({ status: true, message: "Duplicate wallet payment ignored" });
+            }
             const afterBal = Number((updated as any).balance ?? 0);
+            const beforeBal = afterBal - amountAfterFee;
 
             try {
               await (storage as any).createNotification(agentId, `Your account was credited with GHS ${amountAfterFee.toFixed(2)} via Paystack.`, { type: 'deposit', amount: amountAfterFee, before: beforeBal, after: afterBal, platform: 'paystack' });
@@ -847,85 +824,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error(`[Webhook] Processing error: ${err}`);
       res.status(200).json({ status: false, message: "Webhook processing failed" });
-    }
-  });
-
-  // Internal bridge endpoint for verified forwarded Paystack success payloads
-  app.post("/api/internal/paystack-success", async (req, res) => {
-    const bridgeSecret = process.env.INTERNAL_BRIDGE_SECRET;
-    if (!bridgeSecret) {
-      console.error("[Internal Bridge] INTERNAL_BRIDGE_SECRET is not configured.");
-      return res.status(500).json({ status: false, message: "Internal bridge secret not configured" });
-    }
-
-    const incomingSecret = req.headers["x-internal-secret"] as string | undefined;
-    if (!incomingSecret || incomingSecret !== bridgeSecret) {
-      console.warn("[Internal Bridge] Unauthorized forwarded webhook request.");
-      return res.status(401).json({ status: false, message: "Unauthorized" });
-    }
-
-    try {
-      const payload = req.body || {};
-      const data = payload.data || payload;
-      const metadata = data.metadata || {};
-      const reference = data.reference || payload.reference;
-      const userId = String(metadata.userId || payload.userId || "").trim();
-      const amountPesewas = Number(data.amount ?? payload.amount ?? 0);
-      const amountGhs = Number((amountPesewas / 100).toFixed(2));
-
-      if (!reference) {
-        return res.status(400).json({ status: false, message: "Missing payment reference" });
-      }
-
-      if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-        console.warn("[Internal Bridge] Missing or invalid userId in forwarded Paystack payload.", { reference, metadata });
-        return res.status(400).json({ status: false, message: "Invalid userId in payload" });
-      }
-
-      const existing = await User.findOne({ _id: userId, "paymentReferenceHistory.reference": reference }).lean();
-      if (existing) {
-        console.log("[Internal Bridge] Payment already fulfilled for reference", reference);
-        return res.status(200).json({ status: true, message: "Already processed", reference });
-      }
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ status: false, message: "User not found" });
-      }
-
-      const beforeBalance = Number(user.balance || 0);
-      user.balance = Number((beforeBalance + amountGhs).toFixed(2));
-      user.paymentReferenceHistory = user.paymentReferenceHistory || [];
-      user.paymentReferenceHistory.push({
-        reference,
-        amount: amountGhs,
-        project: "NEW_APP",
-        fulfilledAt: new Date(),
-      });
-      await user.save();
-
-      await (storage as any).createNotification(userId, `Your account was credited with GHS ${amountGhs.toFixed(2)} via NEW_APP Paystack payment.`, {
-        type: "deposit",
-        project: "NEW_APP",
-        amount: amountGhs,
-        reference,
-        before: beforeBalance,
-        after: user.balance,
-        platform: "paystack",
-      });
-
-      console.log("[Internal Bridge] Paid and credited user", {
-        userId,
-        reference,
-        amountGhs,
-        beforeBalance,
-        afterBalance: user.balance,
-      });
-
-      return res.status(200).json({ status: true, message: "Forwarded webhook processed", reference, userId });
-    } catch (error: any) {
-      console.error("[Internal Bridge] Failed to process forwarded webhook", error);
-      return res.status(500).json({ status: false, message: "Failed to process forwarded webhook" });
     }
   });
 
