@@ -3,6 +3,7 @@ services:
     name: allen-data-hub-backend
     env: node
     plan: standard
+    rootDir: .
     buildCommand: npm run build
     startCommand: npm start
     envVars:
