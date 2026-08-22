@@ -13,6 +13,6 @@ services:
       - key: JWT_SECRET
       - key: PAYSTACK_SECRET_KEY
       - key: PAYSTACK_PUBLIC_KEY
-      - key: PORTAL02_API_KEY
-      - key: PORTAL02_BASE_URL
+      - key: ALLENDATAHUB_API_KEY
+      - key: ALLENDATAHUB_BASE_URL
       - key: BREVO_API_KEY

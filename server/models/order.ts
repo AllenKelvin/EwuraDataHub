@@ -13,7 +13,7 @@ const OrderSchema = new mongoose.Schema(
     /** Paystack transaction reference for webhook idempotency */
     paymentReference: { type: String, index: true },
     vendorOrderId: { type: String },
-    /** Client reference sent to Portal-02; vendor webhooks may echo this for lookup */
+    /** Client reference used to correlate external fulfillment orders */
     clientOrderReference: { type: String, index: true },
     webhookUrl: { type: String },
     /** Last time vendor webhook reported a status change for this order */

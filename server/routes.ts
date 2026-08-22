@@ -5,7 +5,7 @@ import { verifyJWT } from "./jwt";
 import { verifyApiKey } from "./apiKeyAuth";
 import { storage } from "./storage";
 import { User } from "./models/user";
-import portal02Service, { portal02AvailableVolumes } from "./services/portal02Service";
+import allenDataHubService, { availableVolumes } from "./services/allenDataHubService";
 import { api } from "@shared/routes";
 import mongoose from "mongoose";
 import { z } from "zod";
@@ -186,21 +186,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const phoneNumber = phoneRes.phone;
 
     const rawNetwork = String(body.network || "").trim();
-    const network = Object.keys(portal02AvailableVolumes).find((key) => key.toLowerCase() === rawNetwork.toLowerCase());
+    const network = Object.keys(availableVolumes).find((key) => key.toLowerCase() === rawNetwork.toLowerCase());
     if (!network) {
       return res.status(400).json({
         error: "INVALID_NETWORK",
-        message: `network must be one of: ${Object.keys(portal02AvailableVolumes).join(", ")}`,
+        message: `network must be one of: ${Object.keys(availableVolumes).join(", ")}`,
         received: rawNetwork,
         requestId,
       });
     }
 
     const volume = Number(body.volume);
-    if (!Number.isFinite(volume) || volume <= 0 || !portal02AvailableVolumes[network]?.includes(volume)) {
+    if (!Number.isFinite(volume) || volume <= 0 || !availableVolumes[network]?.includes(volume)) {
       return res.status(400).json({
         error: "INVALID_VOLUME",
-        message: `volume must be one of: ${portal02AvailableVolumes[network].join(", ")}`,
+        message: `volume must be one of: ${availableVolumes[network].join(", ")}`,
         received: body.volume,
         requestId,
       });
@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { Order } = await import("./models/order");
     let vendorResult: any = { success: false, error: "Internal error", status: "failed" };
     try {
-      vendorResult = await portal02Service.purchaseDataBundle(phoneNumber, volume, network, clientRef);
+      vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, volume, network, product.name);
       await Order.findByIdAndUpdate(order.id, {
         $set: {
           vendorOrderId: vendorResult.transactionId || vendorResult.reference,
@@ -778,7 +778,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { Product } = await import("./models/product");
             const { Order } = await import("./models/order");
             const { User } = await import("./models/user");
-            const portal02Service = (await import("./services/portal02Service")).default;
 
             const webhookUser = await User.findById(userId).lean();
             const userRole = webhookUser?.role;
@@ -807,15 +806,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
                 createdOrdersCount++;
 
-                if (p && phoneNumber && portal02Service) {
+                if (p && phoneNumber) {
                   try {
                     const clientRef = `ORD-${order.id}-${Date.now()}`;
                     console.log(`[Webhook] Calling vendor for ${phoneNumber}, ${p.dataAmount}GB ${p.network}, ref=${clientRef}`);
-                    const vendorResult = await portal02Service.purchaseDataBundle(
+                    const vendorResult = await allenDataHubService.purchaseDataBundle(
                       phoneNumber,
                       p.dataAmount,
                       p.network,
-                      clientRef
+                      p.name
                     );
                     console.log(`[Webhook] Vendor result - Success: ${vendorResult.success}, Message: ${vendorResult.message}`);
                     
@@ -836,7 +835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       },
                     });
                   } catch (vendorErr: any) {
-                    console.error(`[Webhook] Portal-02 failed: ${vendorErr?.message}`);
+                    console.error(`[Webhook] AllenDataHub failed: ${vendorErr?.message}`);
                     await Order.findByIdAndUpdate(order.id, {
                       $set: {
                         status: "failed",
@@ -937,90 +936,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Internal Bridge] Failed to process forwarded webhook", error);
       return res.status(500).json({ status: false, message: "Failed to process forwarded webhook" });
-    }
-  });
-
-  // Portal-02 vendor webhook (updates order status from vendor)
-  app.post("/api/webhooks/portal02", async (req, res) => {
-    try {
-      const portal02Service = (await import("./services/portal02Service")).default;
-      const processed = portal02Service.processWebhookPayload(req.body);
-      if (!processed.success) {
-        return res.status(200).send("Event ignored");
-      }
-      const { orderId, reference, status } = processed;
-      const { Order } = await import("./models/order");
-
-      const ourStatus = ["delivered", "resolved"].includes(status) ? "completed" : ["failed", "cancelled", "refunded"].includes(status) ? "failed" : "processing";
-
-      const candidates = [...new Set([orderId, reference].filter((x) => x != null && String(x).trim() !== "").map((x) => String(x)))];
-      if (candidates.length === 0) {
-        console.warn("[Portal02] Webhook missing orderId/reference; body:", JSON.stringify(req.body).slice(0, 500));
-        return res.status(200).send("OK");
-      }
-
-      const orConditions = candidates.flatMap((c) => [
-        { vendorOrderId: c },
-        { clientOrderReference: c },
-        { "processingResults.transactionId": c },
-        { "processingResults.reference": c },
-      ]);
-
-      const statusAt = processed.timestamp instanceof Date && !isNaN(processed.timestamp.getTime()) ? processed.timestamp : new Date();
-
-      const updated = await Order.findOneAndUpdate(
-        { $or: orConditions },
-        {
-          $set: { status: ourStatus, lastStatusUpdateAt: statusAt },
-          $push: {
-            webhookHistory: {
-              event: processed.event,
-              orderId: orderId != null ? String(orderId) : "",
-              reference: reference != null ? String(reference) : "",
-              status,
-              recipient: processed.recipient,
-              volume: processed.volume,
-              timestamp: statusAt,
-            },
-          },
-        },
-        { new: true }
-      );
-
-      if (updated) {
-        console.log(`[Portal02] Order ${updated._id} updated to ${ourStatus} (lastStatusUpdateAt=${statusAt.toISOString()})`);
-        if ((updated as any).webhookUrl && ["processing", "completed", "failed"].includes(ourStatus)) {
-          const orderDoc = updated as any;
-          try {
-            await fetch(orderDoc.webhookUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                orderId: orderDoc._id?.toString?.(),
-                vendorOrderId: orderDoc.vendorOrderId,
-                clientOrderReference: orderDoc.clientOrderReference,
-                reference: orderDoc.clientOrderReference || orderDoc.vendorOrderId || orderDoc._id?.toString?.(),
-                status: ourStatus,
-                vendorStatus: status,
-                phoneNumber: orderDoc.phoneNumber,
-                dataAmount: orderDoc.dataAmount,
-                webhookEvent: processed.event,
-                timestamp: statusAt.toISOString(),
-                raw: req.body,
-              }),
-            });
-            console.log(`[Portal02] Forwarded status update to ${orderDoc.webhookUrl}`);
-          } catch (forwardErr: any) {
-            console.error(`[Portal02] Failed to forward webhook to ${orderDoc.webhookUrl}:`, forwardErr?.message || forwardErr);
-          }
-        }
-      } else {
-        console.warn(`[Portal02] No order matched webhook candidates: ${candidates.join(", ")}`);
-      }
-      res.status(200).send("OK");
-    } catch (err: any) {
-      console.error("[Portal02] Webhook error:", err?.message);
-      res.status(200).send("OK");
     }
   });
 
@@ -1148,7 +1063,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deductAgentBalance(userId, total);
       
       const { Order } = await import("./models/order");
-      const portal02Service = (await import("./services/portal02Service")).default;
       const created: any[] = [];
       console.log(`[Checkout] Processing ${cart.length} cart items for wallet payment`);
       for (const item of cart) {
@@ -1171,14 +1085,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             console.log(`[Checkout] Created order: ${JSON.stringify(order)}`);
             created.push(order);
-            if (p && phoneNumber && portal02Service) {
+            if (p && phoneNumber) {
               try {
                 const clientRef = `ORD-${order.id}-${Date.now()}`;
-                const vendorResult = await portal02Service.purchaseDataBundle(
+                const vendorResult = await allenDataHubService.purchaseDataBundle(
                   phoneNumber,
                   p.dataAmount,
                   p.network,
-                  clientRef
+                  p.name
                 );
                 await Order.findByIdAndUpdate(order.id, {
                   $set: {
@@ -1197,7 +1111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   },
                 });
               } catch (vendorErr: any) {
-                console.error("[Checkout] Portal-02 failed:", vendorErr?.message);
+                console.error("[Checkout] AllenDataHub failed:", vendorErr?.message);
                 await Order.findByIdAndUpdate(order.id, {
                   $set: { status: "failed", "processingResults.0": { itemIndex: 0, success: false, error: vendorErr?.message, status: "failed" } },
                 });
