@@ -671,6 +671,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Verify Paystack payment and create orders
+  app.post("/api/payments/verify-and-create-orders", verifyJWT, async (req, res) => {
+    const user = (req as any).user;
+    const reference = String(req.body?.reference || "").trim();
+    if (!reference) return res.status(400).json({ message: "Payment reference is required" });
+
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
+    if (!paystackSecret) return res.status(500).json({ message: "Paystack not configured" });
+
+    try {
+      console.log(`[PaymentVerifyOrders] Verifying payment ${reference} for user ${user.id}`);
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { Authorization: `Bearer ${paystackSecret}` },
+      });
+      const payload = await response.json();
+      const data = payload?.data;
+      const metadata = data?.metadata || {};
+      
+      if (!response.ok || payload?.status !== true || data?.status !== "success") {
+        return res.status(400).json({ message: payload?.message || "Payment has not been confirmed" });
+      }
+
+      // Verify payment is for this user's order
+      if (metadata.type !== "order" || String(metadata.userId) !== String(user.id)) {
+        return res.status(403).json({ message: "Payment does not belong to this order" });
+      }
+
+      const cart = metadata.cart || [];
+      if (!Array.isArray(cart) || cart.length === 0) {
+        return res.status(400).json({ message: "No items in cart for this payment" });
+      }
+
+      console.log(`[PaymentVerifyOrders] Payment verified. Creating orders for ${cart.length} items`);
+      
+      // Check if orders already exist for this payment (idempotency)
+      const { Order } = await import("./models/order");
+      const existingOrder = await Order.findOne({ paymentReference: reference }).lean();
+      if (existingOrder) {
+        console.log(`[PaymentVerifyOrders] Orders already exist for payment ${reference}. Returning existing orders.`);
+        const orders = await Order.find({ paymentReference: reference }).lean();
+        return res.json({ status: true, orders, message: "Orders already created for this payment" });
+      }
+
+      const { Product } = await import("./models/product");
+      const role = user.role;
+      const createdOrders: any[] = [];
+
+      for (const item of cart) {
+        const qty = item.quantity || 1;
+        const p = await Product.findById(item.productId).lean();
+        if (!p) {
+          console.warn(`[PaymentVerifyOrders] Product ${item.productId} not found, skipping`);
+          continue;
+        }
+
+        const phoneNumber = item.phoneNumber || "";
+        const priceForRole = role === 'agent' 
+          ? (p.agentPrice ?? p.price) 
+          : (p.userPrice ?? p.price);
+
+        for (let i = 0; i < qty; i++) {
+          try {
+            console.log(`[PaymentVerifyOrders] Creating order for product ${item.productId}, phone: ${phoneNumber}`);
+            
+            const order = await (storage as any).createCompletedOrder({
+              productId: item.productId,
+              userId: user.id,
+              phoneNumber,
+              paymentStatus: "success",
+              productName: p?.name,
+              statusOverride: p && phoneNumber ? "pending" : "completed",
+              priceOverride: priceForRole,
+              paymentReference: reference,
+            });
+            createdOrders.push(order);
+
+            // If it's a data bundle with phone number, process with AllenDataHub
+            if (p && phoneNumber) {
+              try {
+                const clientRef = `ORD-${order.id}-${Date.now()}`;
+                console.log(`[PaymentVerifyOrders] Calling AllenDataHub for ${phoneNumber}, ${p.dataAmount}GB ${p.network}, ref=${clientRef}`);
+                
+                const vendorResult = await allenDataHubService.purchaseDataBundle(
+                  phoneNumber,
+                  p.dataAmount,
+                  p.network,
+                  p.name
+                );
+                console.log(`[PaymentVerifyOrders] AllenDataHub result - Success: ${vendorResult.success}, Message: ${vendorResult.message}`);
+                
+                await Order.findByIdAndUpdate(order.id, {
+                  $set: {
+                    clientOrderReference: clientRef,
+                    vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+                    "processingResults.0": {
+                      itemIndex: 0,
+                      success: vendorResult.success,
+                      transactionId: vendorResult.transactionId,
+                      reference: vendorResult.reference,
+                      message: vendorResult.message,
+                      error: vendorResult.error,
+                      status: vendorResult.status || (vendorResult.success ? "pending" : "failed"),
+                    },
+                    status: vendorResult.success ? "pending" : "failed",
+                  },
+                });
+              } catch (vendorErr: any) {
+                console.error(`[PaymentVerifyOrders] AllenDataHub failed: ${vendorErr?.message}`);
+                await Order.findByIdAndUpdate(order.id, {
+                  $set: {
+                    status: "failed",
+                    paymentStatus: "success",
+                    "processingResults.0": { itemIndex: 0, success: false, error: vendorErr?.message, status: "failed" },
+                  },
+                });
+              }
+            }
+          } catch (err: any) {
+            console.error(`[PaymentVerifyOrders] Failed to create order for product ${item.productId}: ${err.message}`);
+          }
+        }
+      }
+
+      console.log(`[PaymentVerifyOrders] Created ${createdOrders.length} orders. Clearing cart for user ${user.id}`);
+      await (storage as any).clearCart(user.id);
+
+      return res.json({ status: true, orders: createdOrders, message: `Created ${createdOrders.length} orders` });
+    } catch (error: any) {
+      console.error(`[PaymentVerifyOrders] Error: ${error.message}`);
+      return res.status(500).json({ message: "Payment verification failed", error: error.message });
+    }
+  });
+
   app.post("/api/paystack/webhook", async (req, res) => {
     const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
     if (!paystackSecret) {
