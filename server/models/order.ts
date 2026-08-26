@@ -12,6 +12,9 @@ const OrderSchema = new mongoose.Schema(
     productName: { type: String, required: false },
     /** Paystack transaction reference for webhook idempotency */
     paymentReference: { type: String, index: true },
+    refundStatus: { type: String, enum: ["none", "refunded"], default: "none", index: true },
+    refundedAt: { type: Date },
+    refundedAmount: { type: Number },
     vendorOrderId: { type: String },
     /** Client reference used to correlate external fulfillment orders */
     clientOrderReference: { type: String, index: true },

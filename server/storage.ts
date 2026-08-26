@@ -296,7 +296,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deductAgentBalance(agentId: string, amount: number) {
-    // Deduct amount from agent balance
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const updated = await User.findByIdAndUpdate(
       agentId, 
@@ -334,6 +333,53 @@ export class DatabaseStorage implements IStorage {
     const updated = await User.findByIdAndUpdate(agentId, { $inc: { balance: amount } }, { new: true }).lean();
     if (!updated) return null;
     return { ...updated, id: updated._id?.toString() };
+  }
+
+  async getWalletAccounts() {
+    const docs = await User.find({ role: { $in: ["agent", "user"] } })
+      .select("username email phoneNumber role isVerified balance")
+      .sort({ createdAt: -1 })
+      .lean();
+    return docs.map((d: any) => ({ ...d, id: d._id?.toString() }));
+  }
+
+  async creditWalletBalance(userId: string, amount: number) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) return null;
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) return null;
+    const updated = await User.findOneAndUpdate(
+      { _id: userId, role: { $in: ["agent", "user"] } },
+      { $inc: { balance: numericAmount } },
+      { new: true },
+    ).lean();
+    return updated ? { ...updated, id: (updated as any)._id?.toString() } : null;
+  }
+
+  async refundOrder(orderId: string) {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) return { ok: false as const, reason: "not_found" };
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, refundStatus: { $ne: "refunded" } },
+      { $set: { refundStatus: "refunded", refundedAt: new Date() } },
+      { new: true },
+    ).lean();
+    if (!order) return { ok: false as const, reason: "already_refunded" };
+
+    const amount = Number((order as any).price);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      await Order.findByIdAndUpdate(orderId, { $set: { refundStatus: "none" }, $unset: { refundedAt: 1 } });
+      return { ok: false as const, reason: "invalid_amount" };
+    }
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: (order as any).userId, role: { $in: ["agent", "user"] } },
+      { $inc: { balance: amount } },
+      { new: true },
+    ).lean();
+    if (!updatedUser) {
+      await Order.findByIdAndUpdate(orderId, { $set: { refundStatus: "none" }, $unset: { refundedAt: 1 } });
+      return { ok: false as const, reason: "user_not_found" };
+    }
+    await Order.findByIdAndUpdate(orderId, { $set: { refundedAmount: amount } });
+    return { ok: true as const, order, user: { ...updatedUser, id: (updatedUser as any)._id?.toString() }, amount };
   }
 
   async createNotification(userId: string, message: string, meta: any = {}) {

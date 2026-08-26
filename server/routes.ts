@@ -355,6 +355,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // List all non-admin wallet accounts (Admin only)
+  app.get("/api/users/wallet-accounts", verifyJWT, async (req, res) => {
+    const user = (req as any).user;
+    if (user?.role !== "admin") return res.status(403).send({ message: "Forbidden" });
+    try {
+      res.json(await (storage as any).getWalletAccounts());
+    } catch (err: any) {
+      console.error("[Admin] Failed to list wallet accounts", err);
+      res.status(500).json({ message: "Failed to fetch wallet accounts" });
+    }
+  });
+
   // Verify Agent (Admin only)
   app.patch(api.users.verifyAgent.path, verifyJWT, async (req, res) => {
     const user = (req as any).user;
@@ -425,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin wallet manager: credit an agent's wallet (Admin only)
+  // Admin wallet manager: credit any user or agent wallet (Admin only)
   // Amount is in GHS: entering 1 credits 1 GHS (not 100 or 1000)
   app.post("/api/admin/wallet/:id/load", verifyJWT, async (req, res) => {
     const user = (req as any).user;
@@ -442,22 +454,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const beforeUser = await (storage as any).getUser(id);
       const beforeBal = Number((beforeUser && (beforeUser as any).balance) ?? 0);
 
-      const updated = await (storage as any).creditAgentBalance(id, amountGHS);
-      if (!updated) return res.status(404).json({ message: 'Agent not found' });
+      const updated = await (storage as any).creditWalletBalance(id, amountGHS);
+      if (!updated) return res.status(404).json({ message: 'Wallet account not found' });
 
       const afterBal = Number((updated as any).balance ?? 0);
 
       const adminName = user.username || 'Admin';
+      const accountLabel = updated.role === 'agent' ? 'agent' : 'user';
       const message = `Your account has been funded with GHS ${amountGHS.toFixed(2)} by ${adminName}. ${reason ? 'Reason: ' + String(reason) : ''}`;
 
-      // Create a notification record for the agent (used by frontend bell and admin deposits list)
+      // Create a notification record for the account holder.
       try {
         await (storage as any).createNotification(id, message, { type: 'deposit', amount: amountGHS, before: beforeBal, after: afterBal, platform: 'admin', reason, by: user.id });
       } catch (nErr) {
         console.error('[Notify] Failed to create notification', nErr);
       }
 
-      // Send email to agent (Brevo) if configured
+      // Send email to the account holder (Brevo) if configured
       try {
         const agent = await (storage as any).getUser(id);
         const agentEmail = agent?.email;
@@ -468,15 +481,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             headers: { "Content-Type": "application/json", "api-key": brevoApiKey },
             body: JSON.stringify({
               sender: { name: "AllenDataHub", email: "allendatahub@gmail.com" },
-              to: [{ email: agentEmail, name: agent?.username || 'Agent' }],
-              subject: "Your agent account was funded",
+              to: [{ email: agentEmail, name: agent?.username || accountLabel }],
+              subject: "Your account was funded",
               htmlContent: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                   <div style="background-color: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
                     <h1 style="margin: 0;">Account Funded</h1>
                   </div>
                   <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
-                    <p style="font-size: 16px; color: #1f2937;">Hi ${agent?.username || 'Agent'},</p>
+                    <p style="font-size: 16px; color: #1f2937;">Hi ${agent?.username || accountLabel},</p>
                     <p style="font-size: 16px; color: #1f2937;">Your account has been credited with <strong>GHS ${amountGHS.toFixed(2)}</strong> by <strong>${adminName}</strong>.</p>
                     ${reason ? `<p style="font-size:14px;color:#374151">Reason: ${String(reason)}</p>` : ''}
                     <p style="font-size:12px;color:#6b7280; margin-top:20px">Balance before: GHS ${beforeBal.toFixed(2)} — Balance after: GHS ${afterBal.toFixed(2)}</p>
@@ -571,8 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const providedEmail = typeof req.body?.email === "string" ? req.body.email.trim() : "";
     const metadata = {
       project: "EWURA_DATA_HUB",
-      userId,
       ...(req.body?.metadata || {}),
+      userId,
     };
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -650,7 +663,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!response.ok || payload?.status !== true || data?.status !== "success") {
         return res.status(400).json({ message: payload?.message || "Payment has not been confirmed" });
       }
-      if (metadata.type !== "wallet" || String(metadata.agentId) !== String(user.id)) {
+      const walletUserId = metadata.agentId || metadata.userId;
+      if (metadata.type !== "wallet" || String(walletUserId) !== String(user.id)) {
         return res.status(403).json({ message: "Payment does not belong to this wallet" });
       }
 
@@ -846,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Webhook] Charge success. Metadata type: ${metadata.type}, UserId: ${metadata.userId}`);
         
         if (metadata.type === "wallet") {
-          const agentId = metadata.agentId;
+          const agentId = metadata.agentId || metadata.userId;
           if (agentId) {
             const amountInGHS = amount / 100; // Convert pesewas to GHS
             const adminFee = amountInGHS * 0.04; // 4% admin fee
@@ -1120,21 +1134,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     console.log(`[Checkout] Total price calculated: ${total}, Payment method: ${paymentMethod}`);
 
-    // WALLET PAYMENT — only agents
+    // WALLET PAYMENT — available to users and agents
     if (paymentMethod === 'wallet') {
-      if (role !== 'agent') {
-        return res.status(403).json({ message: 'Wallet payment only available for agents' });
+      if (role !== 'agent' && role !== 'user') {
+        return res.status(403).json({ message: 'Wallet payment is not available for this account' });
       }
 
       // Use fresh balance from DB so deduction matches actual wallet balance
       const freshUser = await storage.getUser(userId);
       const balance = typeof freshUser?.balance === 'string' ? parseFloat(freshUser.balance) : (freshUser?.balance ?? 0);
-      console.log(`[Checkout] Agent ${userId} attempting wallet payment. Balance: ${balance}, Total: ${total}`);
+      console.log(`[Checkout] ${role} ${userId} attempting wallet payment. Balance: ${balance}, Total: ${total}`);
       
       if (balance < total) return res.status(400).json({ message: `Insufficient wallet balance. You need GHS ${total.toFixed(2)}, but have GHS ${balance.toFixed(2)}` });
 
-      // Deduct total from agent wallet (balance and package total both in GHS)
-      console.log(`[Checkout] Deducting GHS ${total} from agent wallet`);
+      // Deduct total from the account wallet (balance and package total both in GHS)
+      console.log(`[Checkout] Deducting GHS ${total} from ${role} wallet`);
       await storage.deductAgentBalance(userId, total);
       
       const { Order } = await import("./models/order");
@@ -1448,6 +1462,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updated = await Order.findByIdAndUpdate(id, { $set: { status, lastStatusUpdateAt: new Date() } }, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json({ ...updated, id: (updated as any)._id?.toString() });
+  });
+
+  // Admin: refund an order to its original wallet account
+  app.post("/api/admin/orders/:id/refund", verifyJWT, async (req, res) => {
+    const user = (req as any).user;
+    if (user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const result = await (storage as any).refundOrder(req.params.id);
+      if (!result.ok) {
+        const messages: Record<string, string> = {
+          already_refunded: "This order has already been refunded",
+          invalid_amount: "This order has no refundable amount",
+          user_not_found: "The original wallet account was not found",
+          not_found: "Order not found",
+        };
+        return res.status(result.reason === "already_refunded" ? 409 : 404).json({ message: messages[result.reason] || "Refund failed" });
+      }
+      try {
+        await (storage as any).createNotification(
+          result.user.id,
+          `GHS ${result.amount.toFixed(2)} has been refunded to your wallet by ${user.username || "Admin"}.`,
+          { type: "refund", amount: result.amount, orderId: req.params.id, platform: "admin", by: user.id },
+        );
+      } catch (notificationError) {
+        console.error("[Admin] Refund notification failed", notificationError);
+      }
+      res.json({ order: { ...result.order, refundStatus: "refunded", refundedAmount: result.amount }, amount: result.amount, user: result.user });
+    } catch (err) {
+      console.error("[Admin] Failed to refund order", err);
+      res.status(500).json({ message: "Failed to refund order" });
+    }
   });
 
   // Get single order by ID (for polling status updates)
