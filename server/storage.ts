@@ -378,8 +378,16 @@ export class DatabaseStorage implements IStorage {
       await Order.findByIdAndUpdate(orderId, { $set: { refundStatus: "none" }, $unset: { refundedAt: 1 } });
       return { ok: false as const, reason: "user_not_found" };
     }
-    await Order.findByIdAndUpdate(orderId, { $set: { refundedAmount: amount } });
-    return { ok: true as const, order, user: { ...updatedUser, id: (updatedUser as any)._id?.toString() }, amount };
+    const afterBalance = Number((updatedUser as any).balance ?? 0);
+    const beforeBalance = afterBalance - amount;
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, {
+      $set: {
+        refundedAmount: amount,
+        refundWalletBalanceBefore: beforeBalance,
+        refundWalletBalanceAfter: afterBalance,
+      },
+    }, { new: true }).lean();
+    return { ok: true as const, order: updatedOrder || order, user: { ...updatedUser, id: (updatedUser as any)._id?.toString() }, amount, beforeBalance, afterBalance };
   }
 
   async createNotification(userId: string, message: string, meta: any = {}) {

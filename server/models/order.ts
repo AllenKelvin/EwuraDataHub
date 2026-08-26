@@ -15,6 +15,8 @@ const OrderSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ["none", "refunded"], default: "none", index: true },
     refundedAt: { type: Date },
     refundedAmount: { type: Number },
+    refundWalletBalanceBefore: { type: Number },
+    refundWalletBalanceAfter: { type: Number },
     vendorOrderId: { type: String },
     /** Client reference used to correlate external fulfillment orders */
     clientOrderReference: { type: String, index: true },

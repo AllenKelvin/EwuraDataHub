@@ -64,6 +64,10 @@ export const orderResponseSchema = z.object({
   orderSource: z.enum(["web", "api"]).optional(),
   walletBalanceBefore: z.number().optional(),
   walletBalanceAfter: z.number().optional(),
+  refundStatus: z.enum(["none", "refunded"]).optional(),
+  refundedAmount: z.number().optional(),
+  refundWalletBalanceBefore: z.number().optional(),
+  refundWalletBalanceAfter: z.number().optional(),
   lastStatusUpdateAt: z.string().nullable().optional(),
   lastVendorWebhook: z
     .object({ vendorStatus: z.string().optional(), at: z.string().optional() })

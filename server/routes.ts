@@ -1488,7 +1488,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (notificationError) {
         console.error("[Admin] Refund notification failed", notificationError);
       }
-      res.json({ order: { ...result.order, refundStatus: "refunded", refundedAmount: result.amount }, amount: result.amount, user: result.user });
+      res.json({
+        order: {
+          ...result.order,
+          refundStatus: "refunded",
+          refundedAmount: result.amount,
+          refundWalletBalanceBefore: result.beforeBalance,
+          refundWalletBalanceAfter: result.afterBalance,
+        },
+        amount: result.amount,
+        user: result.user,
+      });
     } catch (err) {
       console.error("[Admin] Failed to refund order", err);
       res.status(500).json({ message: "Failed to refund order" });
