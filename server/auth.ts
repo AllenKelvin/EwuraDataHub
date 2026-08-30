@@ -154,15 +154,20 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Phone number must be 10 digits" });
       }
 
-      // Check for existing user
-      const existing = await storage.getUserByUsername(userData.username || userData.email);
-      if (existing) {
-        return res.status(400).json({ message: "Username or email already exists" });
-      }
-
       // Admin registration disabled
       if (userData.role === 'admin') {
         return res.status(403).json({ message: "Admin registration is disabled" });
+      }
+
+      // Check for existing user by username AND email
+      const existingByUsername = await storage.getUserByUsername(userData.username);
+      if (existingByUsername) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      const existingByEmail = await storage.getUserByUsername(userData.email);
+      if (existingByEmail) {
+        return res.status(400).json({ message: "Email already exists" });
       }
 
       // Hash password and create user
@@ -195,7 +200,14 @@ export function setupAuth(app: Express) {
         user: normalizeUser(newUser),
         accessToken,
       });
-    } catch (e) {
+    } catch (e: any) {
+      console.error("[Register] Error:", e?.message || e);
+      // Handle duplicate key errors from MongoDB
+      if (e?.code === 11000) {
+        const field = Object.keys(e?.keyPattern || {})[0];
+        const message = field === 'username' ? 'Username already exists' : field === 'email' ? 'Email already exists' : 'User already exists';
+        return res.status(400).json({ message });
+      }
       res.status(500).json({ message: "Internal Server Error" });
     }
   });
