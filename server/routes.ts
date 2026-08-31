@@ -1323,7 +1323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders/pay", verifyJWT, async (req, res) => {
     const user = (req as any).user;
     if (!user) return res.status(401).send({ message: "Unauthorized" });
-    const { productId, useWallet } = req.body;
+    const { productId, useWallet, phoneNumber } = req.body;
     if (!productId) return res.status(400).json({ message: "productId required" });
 
     // verify agent
@@ -1344,7 +1344,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Deduct and create completed order
       await (storage as any).deductAgentBalance(user._id.toString(), priceForRole);
-      const order = await (storage as any).createCompletedOrder({ productId, userId: user._id.toString(), priceOverride: priceForRole });
+      const order = await (storage as any).createCompletedOrder({
+        productId,
+        userId: user._id.toString(),
+        phoneNumber,
+        productName: p.name,
+        priceOverride: priceForRole,
+        statusOverride: phoneNumber ? "pending" : "completed",
+      });
+      if (phoneNumber) {
+        const { Order } = await import("./models/order");
+        try {
+          const vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, p.dataAmount, p.network, p.name);
+          await Order.findByIdAndUpdate(order.id, {
+            $set: {
+              vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+              status: vendorResult.success ? "pending" : "failed",
+              "processingResults.0": {
+                itemIndex: 0,
+                success: vendorResult.success,
+                transactionId: vendorResult.transactionId,
+                reference: vendorResult.reference,
+                message: vendorResult.message,
+                error: vendorResult.error,
+                status: vendorResult.status || (vendorResult.success ? "pending" : "failed"),
+              },
+            },
+          });
+        } catch (vendorErr: any) {
+          await Order.findByIdAndUpdate(order.id, {
+            $set: {
+              status: "failed",
+              "processingResults.0": { itemIndex: 0, success: false, error: vendorErr?.message, status: "failed" },
+            },
+          });
+        }
+      }
       return res.json(order);
     }
 

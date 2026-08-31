@@ -1,5 +1,5 @@
 const API_KEY = process.env.ALLENDATAHUB_API_KEY;
-const BASE_URL = (process.env.ALLENDATAHUB_BASE_URL || "https://allen-data-hub-backend.onrender.com").replace(/\/$/, "");
+const BASE_URL = "https://allendatahub.onrender.com";
 
 export const availableVolumes: Record<string, number[]> = {
   MTN: [1, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 40, 50, 100],
