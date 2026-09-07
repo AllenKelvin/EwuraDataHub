@@ -1549,7 +1549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { Order } = await import('./models/order');
       const { Product } = await import('./models/product');
-      const order = await Order.findById(orderId).lean();
+      let order = await Order.findById(orderId).lean();
       
       if (!order) return res.status(404).json({ message: "Order not found" });
       
@@ -1557,6 +1557,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role !== 'admin' && order.userId.toString() !== user.id && order.userId !== user.id) {
         return res.status(403).json({ message: "Forbidden" });
       }
+
+      // Reconcile open orders with the fulfillment provider before returning them.
+      if ((order.status === "pending" || order.status === "processing") && order.vendorOrderId) {
+        try {
+          const vendorUpdate = await allenDataHubService.getOrderStatus(order.vendorOrderId);
+          if (vendorUpdate && vendorUpdate.status !== order.status) {
+            order = await Order.findByIdAndUpdate(
+              orderId,
+              {
+                $set: {
+                  status: vendorUpdate.status,
+                  lastStatusUpdateAt: new Date(),
+                  "processingResults.0.status": vendorUpdate.vendorStatus || vendorUpdate.status,
+                },
+                $push: {
+                  webhookHistory: {
+                    event: "status.poll",
+                    orderId: order.vendorOrderId,
+                    status: vendorUpdate.vendorStatus || vendorUpdate.status,
+                    timestamp: new Date(),
+                  },
+                },
+              },
+              { new: true },
+            ).lean();
+          }
+        } catch (syncError) {
+          console.warn(`[Order status] Failed to reconcile ${orderId}:`, syncError);
+        }
+      }
+
+      if (!order) return res.status(404).json({ message: "Order not found" });
       
       const product = await Product.findById(order.productId).lean();
       const h = (order as any).webhookHistory;

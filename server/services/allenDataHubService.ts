@@ -59,6 +59,30 @@ class AllenDataHubService {
       raw: data,
     };
   }
+
+  async getOrderStatus(orderId: string) {
+    if (!API_KEY || !orderId) return null;
+
+    const response = await fetch(`${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}`, {
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        Accept: "application/json",
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+
+    const rawStatus = String(data.status || data.order?.status || "").toLowerCase();
+    const status = ["completed", "complete", "delivered", "success", "successful"].includes(rawStatus)
+      ? "completed"
+      : ["failed", "failure", "error", "cancelled", "canceled"].includes(rawStatus)
+        ? "failed"
+        : ["processing", "in_progress", "in-progress"].includes(rawStatus)
+          ? "processing"
+          : "pending";
+
+    return { status, vendorStatus: rawStatus || null, raw: data };
+  }
 }
 
 export const allenDataHubService = new AllenDataHubService();
