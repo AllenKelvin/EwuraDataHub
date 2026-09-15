@@ -1,5 +1,9 @@
 const API_KEY = process.env.ALLENDATAHUB_API_KEY;
-const BASE_URL = "https://allendatahub.onrender.com";
+const BASE_URL = (() => {
+  const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.onrender.com").trim();
+  const normalized = configured.replace(/\/+$/, "");
+  return normalized.endsWith("/api/v1") ? normalized : `${normalized}/api/v1`;
+})();
 
 export const availableVolumes: Record<string, number[]> = {
   MTN: [1, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 40, 50, 100],
@@ -13,6 +17,20 @@ function extractVolume(size: string | number): number {
   return match ? Number(match[1]) : 0;
 }
 
+function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
+  return {
+    Authorization: `Bearer ${API_KEY}`,
+    "x-api-key": API_KEY,
+    ...extraHeaders,
+  };
+}
+
+function generateIdempotencyKey(recipient: string, network: string, bundleSize: string | number) {
+  const safeRecipient = String(recipient || "customer").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 24) || "customer";
+  const size = extractVolume(bundleSize);
+  return `checkout-${safeRecipient}-${network}-${size}gb-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 class AllenDataHubService {
   constructor() {
     console.log(`[AllenDataHub] Configured with base URL ${BASE_URL}`);
@@ -23,19 +41,25 @@ class AllenDataHubService {
     bundleSize: string | number,
     network: string,
     packageName: string,
+    options?: { idempotencyKey?: string },
   ) {
     if (!API_KEY) {
       return { success: false, error: "ALLENDATAHUB_API_KEY is not configured", status: "failed" };
     }
 
     const size = extractVolume(bundleSize);
-    const response = await fetch(`${BASE_URL}/api/v1/orders`, {
+    const headers: Record<string, string> = {
+      ...getAuthHeaders(),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize);
+    headers["Idempotency-Key"] = idempotencyKey;
+
+    const response = await fetch(`${BASE_URL}/orders`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers,
       body: JSON.stringify({ network, size: `${size} GB`, recipient, packageName }),
     });
     const data = await response.json().catch(() => ({}));
@@ -49,7 +73,7 @@ class AllenDataHubService {
       };
     }
 
-    const externalOrderId = data.orderId || data.id || data.order?.id;
+    const externalOrderId = data.orderId || data.id || data.order?.id || data.reference;
     return {
       success: true,
       transactionId: externalOrderId,
@@ -63,9 +87,9 @@ class AllenDataHubService {
   async getOrderStatus(orderId: string) {
     if (!API_KEY || !orderId) return null;
 
-    const response = await fetch(`${BASE_URL}/api/v1/orders/${encodeURIComponent(orderId)}`, {
+    const response = await fetch(`${BASE_URL}/orders/${encodeURIComponent(orderId)}`, {
       headers: {
-        Authorization: `Bearer ${API_KEY}`,
+        ...getAuthHeaders(),
         Accept: "application/json",
       },
     });
