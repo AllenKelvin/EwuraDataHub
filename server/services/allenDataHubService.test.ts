@@ -5,7 +5,7 @@ const originalFetch = globalThis.fetch;
 const originalApiKey = process.env.ALLENDATAHUB_API_KEY;
 const originalBaseUrl = process.env.ALLENDATAHUB_BASE_URL;
 
-test("uses documented AllenDataHub API base URL and idempotency headers", async () => {
+test("uses documented AllenDataHub API base URL and stable idempotency headers", async () => {
   process.env.ALLENDATAHUB_API_KEY = "up_live_test";
   process.env.ALLENDATAHUB_BASE_URL = "https://example.test";
 
@@ -25,13 +25,18 @@ test("uses documented AllenDataHub API base URL and idempotency headers", async 
   await service.purchaseDataBundle("0249116309", "3 GB", "MTN", "MTN 3GB", {
     idempotencyKey: "checkout-2026-09-15-0001",
   });
+  await service.purchaseDataBundle("0249116309", "3 GB", "MTN", "MTN 3GB", {
+    idempotencyKey: "checkout-2026-09-15-0001",
+  });
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].input, "https://example.test/api/v1/orders");
-  const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
-  assert.equal(headers.Authorization, "Bearer up_live_test");
-  assert.equal(headers["x-api-key"], "up_live_test");
-  assert.equal(headers["Idempotency-Key"], "checkout-2026-09-15-0001");
+  const firstHeaders = (calls[0].init?.headers ?? {}) as Record<string, string>;
+  const secondHeaders = (calls[1].init?.headers ?? {}) as Record<string, string>;
+  assert.equal(firstHeaders.Authorization, "Bearer up_live_test");
+  assert.equal(firstHeaders["x-api-key"], "up_live_test");
+  assert.equal(firstHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
+  assert.equal(secondHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
 });
 
 test.after(async () => {

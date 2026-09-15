@@ -25,10 +25,11 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
   };
 }
 
-function generateIdempotencyKey(recipient: string, network: string, bundleSize: string | number) {
+function generateIdempotencyKey(recipient: string, network: string, bundleSize: string | number, reference?: string) {
   const safeRecipient = String(recipient || "customer").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 24) || "customer";
   const size = extractVolume(bundleSize);
-  return `checkout-${safeRecipient}-${network}-${size}gb-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const stableReference = String(reference || `${safeRecipient}-${network}-${size}gb`).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 64) || "checkout";
+  return `checkout-${stableReference}`;
 }
 
 class AllenDataHubService {
@@ -54,7 +55,7 @@ class AllenDataHubService {
       Accept: "application/json",
     };
 
-    const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize);
+    const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize, `order-${recipient}-${network}-${size}`);
     headers["Idempotency-Key"] = idempotencyKey;
 
     const response = await fetch(`${BASE_URL}/orders`, {

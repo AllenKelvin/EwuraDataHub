@@ -261,7 +261,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { Order } = await import("./models/order");
     let vendorResult: any = { success: false, error: "Internal error", status: "failed" };
     try {
-      vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, volume, network, product.name);
+      vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, volume, network, product.name, {
+        idempotencyKey: `api-order-${order.id}`,
+      });
       await Order.findByIdAndUpdate(order.id, {
         $set: {
           vendorOrderId: vendorResult.transactionId || vendorResult.reference,
@@ -972,7 +974,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       phoneNumber,
                       p.dataAmount,
                       p.network,
-                      p.name
+                      p.name,
+                      { idempotencyKey: `webhook-order-${order.id}` }
                     );
                     console.log(`[Webhook] Vendor result - Success: ${vendorResult.success}, Message: ${vendorResult.message}`);
                     
@@ -1355,7 +1358,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (phoneNumber) {
         const { Order } = await import("./models/order");
         try {
-          const vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, p.dataAmount, p.network, p.name);
+          const vendorResult = await allenDataHubService.purchaseDataBundle(phoneNumber, p.dataAmount, p.network, p.name, {
+            idempotencyKey: `wallet-order-${order.id}`,
+          });
           await Order.findByIdAndUpdate(order.id, {
             $set: {
               vendorOrderId: vendorResult.transactionId || vendorResult.reference,
