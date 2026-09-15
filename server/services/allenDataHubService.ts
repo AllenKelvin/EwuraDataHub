@@ -62,11 +62,26 @@ class AllenDataHubService {
       headers,
       body: JSON.stringify({ network, size: `${size} GB`, recipient, packageName }),
     });
-    const data = await response.json().catch(() => ({}));
+
+    const rawText = await response.text();
+    let data: any = {};
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { raw: rawText };
+      }
+    }
+
     if (!response.ok || data.success === false || data.ok === false) {
+      console.error("[AllenDataHub] Order request failed", {
+        status: response.status,
+        request: { network, size: `${size} GB`, recipient, packageName },
+        response: data,
+      });
       return {
         success: false,
-        error: data.error || data.message || `AllenDataHub API returned HTTP ${response.status}`,
+        error: data.error || data.message || data.raw || `AllenDataHub API returned HTTP ${response.status}`,
         status: "failed",
         code: response.status,
         raw: data,
@@ -93,7 +108,15 @@ class AllenDataHubService {
         Accept: "application/json",
       },
     });
-    const data = await response.json().catch(() => ({}));
+    const rawText = await response.text();
+    let data: any = {};
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { raw: rawText };
+      }
+    }
     if (!response.ok) return null;
 
     const rawStatus = String(data.status || data.order?.status || "").toLowerCase();
