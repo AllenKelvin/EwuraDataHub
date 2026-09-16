@@ -1,6 +1,6 @@
 const API_KEY = process.env.ALLENDATAHUB_API_KEY;
 const BASE_URL = (() => {
-  const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.onrender.com").trim();
+  const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allen-data-hub-backend.onrender.com").trim();
   const normalized = configured.replace(/\/+$/, "");
   return normalized.endsWith("/api/v1") ? normalized : `${normalized}/api/v1`;
 })();
