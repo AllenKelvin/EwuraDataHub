@@ -13,7 +13,7 @@ test("uses documented AllenDataHub API base URL and stable idempotency headers",
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
     calls.push({ input, init });
     return new Response(
-      JSON.stringify({ ok: true, orderId: "ord_123", status: "pending" }),
+      JSON.stringify({ ok: true, order: { id: "ord_123", status: "Pending", vendorStatus: "pending" } }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -30,7 +30,7 @@ test("uses documented AllenDataHub API base URL and stable idempotency headers",
   });
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[0].input, "https://example.test/api/v1/data/purchase");
+  assert.equal(calls[0].input, "https://example.test/api/v1/orders");
   const firstHeaders = (calls[0].init?.headers ?? {}) as Record<string, string>;
   const secondHeaders = (calls[1].init?.headers ?? {}) as Record<string, string>;
   const firstBody = JSON.parse(String((calls[0].init?.body ?? "{}")));
@@ -39,9 +39,10 @@ test("uses documented AllenDataHub API base URL and stable idempotency headers",
   assert.equal(firstHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
   assert.equal(secondHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
   assert.deepEqual(firstBody, {
-    phoneNumber: "0249116309",
     network: "MTN",
-    volume: 3,
+    size: "3 GB",
+    recipient: "0249116309",
+    packageName: "MTN 3GB",
   });
 });
 

@@ -92,13 +92,14 @@ class AllenDataHubService {
     const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize, `order-${recipient}-${network}-${size}`);
     headers["Idempotency-Key"] = idempotencyKey;
 
-    const response = await fetch(`${BASE_URL}/data/purchase`, {
+    const response = await fetch(`${BASE_URL}/orders`, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        phoneNumber: recipient,
         network,
-        volume: size,
+        size: `${size} GB`,
+        recipient,
+        packageName,
       }),
     });
 
@@ -112,7 +113,12 @@ class AllenDataHubService {
       }
     }
 
-    if (!response.ok || data.success === false || data.ok === false) {
+    const payload = data.order ?? data;
+    const orderPayload = payload?.order ?? payload;
+    const externalOrderId = orderPayload?.id || data.orderId || data.id || data.order?.id || data.reference || data.transactionId || null;
+    const isSuccess = response.ok && (data.ok !== false) && (data.success !== false) && (data.order !== null && data.order !== undefined ? true : data.success !== false);
+
+    if (!isSuccess) {
       console.error("[AllenDataHub] Order request failed", {
         status: response.status,
         request: { network, size: `${size} GB`, recipient, packageName },
@@ -127,16 +133,15 @@ class AllenDataHubService {
       };
     }
 
-    const externalOrderId = data.orderId || data.id || data.order?.id || data.reference || data.transactionId;
-    const { status, vendorStatus } = normalizeVendorStatus(data);
+    const { status, vendorStatus } = normalizeVendorStatus(orderPayload ?? data);
     return {
       success: true,
       orderId: externalOrderId,
       transactionId: externalOrderId,
       reference: data.reference || externalOrderId,
-      status: status || "pending",
-      vendorStatus: vendorStatus || null,
-      message: data.message || "Order submitted to AllenDataHub",
+      status: status || orderPayload?.status || data.status || "pending",
+      vendorStatus: vendorStatus || orderPayload?.vendorStatus || data.vendorStatus || null,
+      message: orderPayload?.message || data.message || "Order submitted to AllenDataHub",
       raw: data,
     };
   }
@@ -161,8 +166,9 @@ class AllenDataHubService {
     }
     if (!response.ok) return null;
 
-    const { status, vendorStatus } = normalizeVendorStatus(data);
-    return { status: status || "pending", vendorStatus: vendorStatus || null, raw: data };
+    const payload = data.order ?? data;
+    const { status, vendorStatus } = normalizeVendorStatus(payload);
+    return { status: status || payload?.status || "pending", vendorStatus: vendorStatus || payload?.vendorStatus || null, raw: data };
   }
 }
 
