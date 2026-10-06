@@ -30,7 +30,7 @@ test("uses documented AllenDataHub API base URL and stable idempotency headers",
   });
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[0].input, "https://example.test/api/v1/orders");
+  assert.equal(calls[0].input, "https://example.test/api/v1/data/purchase");
   const firstHeaders = (calls[0].init?.headers ?? {}) as Record<string, string>;
   const secondHeaders = (calls[1].init?.headers ?? {}) as Record<string, string>;
   assert.equal(firstHeaders.Authorization, "Bearer up_live_test");

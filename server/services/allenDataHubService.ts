@@ -1,6 +1,6 @@
 const API_KEY = process.env.ALLENDATAHUB_API_KEY;
 const BASE_URL = (() => {
-  const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allen-data-hub-backend.onrender.com").trim();
+  const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.onrender.com").trim();
   const normalized = configured.replace(/\/+$/, "");
   return normalized.endsWith("/api/v1") ? normalized : `${normalized}/api/v1`;
 })();
@@ -58,7 +58,7 @@ class AllenDataHubService {
     const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize, `order-${recipient}-${network}-${size}`);
     headers["Idempotency-Key"] = idempotencyKey;
 
-    const response = await fetch(`${BASE_URL}/orders`, {
+    const response = await fetch(`${BASE_URL}/data/purchase`, {
       method: "POST",
       headers,
       body: JSON.stringify({ network, size: `${size} GB`, recipient, packageName }),
