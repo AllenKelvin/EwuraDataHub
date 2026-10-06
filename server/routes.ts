@@ -266,13 +266,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       await Order.findByIdAndUpdate(order.id, {
         $set: {
-          vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+          vendorOrderId: vendorResult.orderId || vendorResult.transactionId || vendorResult.reference,
           status: vendorResult.success ? "pending" : "failed",
           processingResults: [
             {
               itemIndex: 0,
               success: vendorResult.success,
-              transactionId: vendorResult.transactionId,
+              transactionId: vendorResult.transactionId || vendorResult.orderId,
               reference: vendorResult.reference,
               message: vendorResult.message,
               error: vendorResult.error,
@@ -294,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({
       success: vendorResult.success,
       orderId: order.id,
-      transactionId: vendorResult.transactionId || vendorResult.reference,
+      transactionId: vendorResult.transactionId || vendorResult.orderId || vendorResult.reference,
       reference: vendorResult.reference || clientRef,
       status: vendorResult.status || (vendorResult.success ? "pending" : "failed"),
       message: vendorResult.message || "Order submitted",
@@ -780,11 +780,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await Order.findByIdAndUpdate(order.id, {
                   $set: {
                     clientOrderReference: clientRef,
-                    vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+                    vendorOrderId: vendorResult.orderId || vendorResult.transactionId || vendorResult.reference,
                     "processingResults.0": {
                       itemIndex: 0,
                       success: vendorResult.success,
-                      transactionId: vendorResult.transactionId,
+                      transactionId: vendorResult.transactionId || vendorResult.orderId,
                       reference: vendorResult.reference,
                       message: vendorResult.message,
                       error: vendorResult.error,
@@ -982,11 +982,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     await Order.findByIdAndUpdate(order.id, {
                       $set: {
                         clientOrderReference: clientRef,
-                        vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+                        vendorOrderId: vendorResult.orderId || vendorResult.transactionId || vendorResult.reference,
                         "processingResults.0": {
                           itemIndex: 0,
                           success: vendorResult.success,
-                          transactionId: vendorResult.transactionId,
+                          transactionId: vendorResult.transactionId || vendorResult.orderId,
                           reference: vendorResult.reference,
                           message: vendorResult.message,
                           error: vendorResult.error,
@@ -1189,11 +1189,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await Order.findByIdAndUpdate(order.id, {
                   $set: {
                     clientOrderReference: clientRef,
-                    vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+                    vendorOrderId: vendorResult.orderId || vendorResult.transactionId || vendorResult.reference,
                     "processingResults.0": {
                       itemIndex: 0,
                       success: vendorResult.success,
-                      transactionId: vendorResult.transactionId,
+                      transactionId: vendorResult.transactionId || vendorResult.orderId,
                       reference: vendorResult.reference,
                       message: vendorResult.message,
                       error: vendorResult.error,
@@ -1363,12 +1363,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           await Order.findByIdAndUpdate(order.id, {
             $set: {
-              vendorOrderId: vendorResult.transactionId || vendorResult.reference,
+              vendorOrderId: vendorResult.orderId || vendorResult.transactionId || vendorResult.reference,
               status: vendorResult.success ? "pending" : "failed",
               "processingResults.0": {
                 itemIndex: 0,
                 success: vendorResult.success,
-                transactionId: vendorResult.transactionId,
+                transactionId: vendorResult.transactionId || vendorResult.orderId,
                 reference: vendorResult.reference,
                 message: vendorResult.message,
                 error: vendorResult.error,

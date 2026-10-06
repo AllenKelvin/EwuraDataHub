@@ -32,6 +32,40 @@ function generateIdempotencyKey(recipient: string, network: string, bundleSize: 
   return `checkout-${stableReference}`;
 }
 
+function normalizeVendorStatus(data: any) {
+  const rawStatus = String(
+    data?.status ??
+      data?.vendorStatus ??
+      data?.order?.status ??
+      data?.order?.vendorStatus ??
+      data?.data?.status ??
+      data?.data?.vendorStatus ??
+      data?.result?.status ??
+      data?.payload?.status ??
+      "",
+  ).trim();
+
+  const normalized = rawStatus.toLowerCase();
+
+  if (["completed", "complete", "delivered", "success", "successful"].includes(normalized)) {
+    return { status: "completed", vendorStatus: rawStatus || null };
+  }
+
+  if (["failed", "failure", "error", "cancelled", "canceled"].includes(normalized)) {
+    return { status: "failed", vendorStatus: rawStatus || null };
+  }
+
+  if (["processing", "in_progress", "in-progress", "queued", "pending_confirmation"].includes(normalized)) {
+    return { status: "processing", vendorStatus: rawStatus || null };
+  }
+
+  if (["pending", "submitted", "created", "awaiting", "inqueue", "in_queue"].includes(normalized)) {
+    return { status: "pending", vendorStatus: rawStatus || null };
+  }
+
+  return { status: normalized ? "pending" : null, vendorStatus: rawStatus || null };
+}
+
 class AllenDataHubService {
   constructor() {
     console.log(`[AllenDataHub] Configured with base URL ${BASE_URL}`);
@@ -89,12 +123,15 @@ class AllenDataHubService {
       };
     }
 
-    const externalOrderId = data.orderId || data.id || data.order?.id || data.reference;
+    const externalOrderId = data.orderId || data.id || data.order?.id || data.reference || data.transactionId;
+    const { status, vendorStatus } = normalizeVendorStatus(data);
     return {
       success: true,
+      orderId: externalOrderId,
       transactionId: externalOrderId,
       reference: data.reference || externalOrderId,
-      status: data.status || "pending",
+      status: status || "pending",
+      vendorStatus: vendorStatus || null,
       message: data.message || "Order submitted to AllenDataHub",
       raw: data,
     };
@@ -120,16 +157,8 @@ class AllenDataHubService {
     }
     if (!response.ok) return null;
 
-    const rawStatus = String(data.status || data.order?.status || "").toLowerCase();
-    const status = ["completed", "complete", "delivered", "success", "successful"].includes(rawStatus)
-      ? "completed"
-      : ["failed", "failure", "error", "cancelled", "canceled"].includes(rawStatus)
-        ? "failed"
-        : ["processing", "in_progress", "in-progress"].includes(rawStatus)
-          ? "processing"
-          : "pending";
-
-    return { status, vendorStatus: rawStatus || null, raw: data };
+    const { status, vendorStatus } = normalizeVendorStatus(data);
+    return { status: status || "pending", vendorStatus: vendorStatus || null, raw: data };
   }
 }
 
