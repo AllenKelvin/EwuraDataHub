@@ -23,6 +23,7 @@ const OrderSchema = new mongoose.Schema(
     webhookUrl: { type: String },
     /** Last time vendor webhook reported a status change for this order */
     lastStatusUpdateAt: { type: Date },
+    lastStatusPollAt: { type: Date },
     orderSource: { type: String, enum: ["web", "api"], default: "web" },
     walletBalanceBefore: { type: Number },
     walletBalanceAfter: { type: Number },

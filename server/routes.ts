@@ -1413,6 +1413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(api.orders.listMyOrders.path, verifyJWT, async (req, res) => {
     const user = (req as any).user;
     if (!user) return res.status(401).send({ message: "Unauthorized" });
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     const userId = user.id;
     const page = Math.max(1, parseInt(String(req.query.page)) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit)) || 10));
@@ -1549,6 +1550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/:id", verifyJWT, async (req, res) => {
     const user = (req as any).user;
     if (!user) return res.status(401).send({ message: "Unauthorized" });
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     const orderId = req.params.id;
     
     try {
@@ -1568,8 +1570,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const vendorUpdate = await allenDataHubService.getOrderStatus(order.vendorOrderId);
           if (vendorUpdate && vendorUpdate.status !== order.status) {
-            order = await Order.findByIdAndUpdate(
-              orderId,
+            const updatedOrder = await Order.findOneAndUpdate(
+              { _id: orderId, status: order.status },
               {
                 $set: {
                   status: vendorUpdate.status,
@@ -1587,6 +1589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               { new: true },
             ).lean();
+            order = updatedOrder ?? await Order.findById(orderId).lean();
           }
         } catch (syncError) {
           console.warn(`[Order status] Failed to reconcile ${orderId}:`, syncError);
@@ -1622,8 +1625,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Start daily reset cron
   try {
-    const { startDailyReset } = await import("./cron");
+    const { startDailyReset, startOrderStatusPolling } = await import("./cron");
     startDailyReset();
+    startOrderStatusPolling();
   } catch (err) {
     console.warn("Failed to start daily reset:", err);
   }
