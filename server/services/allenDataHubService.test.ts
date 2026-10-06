@@ -33,10 +33,16 @@ test("uses documented AllenDataHub API base URL and stable idempotency headers",
   assert.equal(calls[0].input, "https://example.test/api/v1/data/purchase");
   const firstHeaders = (calls[0].init?.headers ?? {}) as Record<string, string>;
   const secondHeaders = (calls[1].init?.headers ?? {}) as Record<string, string>;
+  const firstBody = JSON.parse(String((calls[0].init?.body ?? "{}")));
   assert.equal(firstHeaders.Authorization, "Bearer up_live_test");
   assert.equal(firstHeaders["x-api-key"], "up_live_test");
   assert.equal(firstHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
   assert.equal(secondHeaders["Idempotency-Key"], "checkout-2026-09-15-0001");
+  assert.deepEqual(firstBody, {
+    phoneNumber: "0249116309",
+    network: "MTN",
+    volume: 3,
+  });
 });
 
 test("returns the vendor order id for polling and normalizes status values", async () => {

@@ -95,7 +95,11 @@ class AllenDataHubService {
     const response = await fetch(`${BASE_URL}/data/purchase`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ network, size: `${size} GB`, recipient, packageName }),
+      body: JSON.stringify({
+        phoneNumber: recipient,
+        network,
+        volume: size,
+      }),
     });
 
     const rawText = await response.text();
