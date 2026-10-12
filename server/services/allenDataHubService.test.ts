@@ -86,6 +86,27 @@ test("returns the vendor order id for polling and normalizes status values", asy
   assert.equal(statusResult?.vendorStatus, "Completed");
 });
 
+test("uses a unique idempotency key for each purchase without an explicit key", async () => {
+  process.env.ALLENDATAHUB_API_KEY = "up_live_test";
+  process.env.ALLENDATAHUB_BASE_URL = "https://example.test";
+
+  const calls: Array<{ init?: RequestInit }> = [];
+  globalThis.fetch = (async (_input: string | URL, init?: RequestInit) => {
+    calls.push({ init });
+    return new Response(JSON.stringify({ success: true, orderId: "ord_123" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const { default: service } = await import("./allenDataHubService.ts");
+  await service.purchaseDataBundle("0249116309", "3 GB", "MTN", "MTN 3GB");
+  await service.purchaseDataBundle("0249116309", "3 GB", "MTN", "MTN 3GB");
+
+  const keys = calls.map(({ init }) => ((init?.headers ?? {}) as Record<string, string>)["Idempotency-Key"]);
+  assert.equal(new Set(keys).size, 2);
+});
+
 test.after(async () => {
   globalThis.fetch = originalFetch;
   if (originalApiKey === undefined) {

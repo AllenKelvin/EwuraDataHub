@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 const API_KEY = process.env.ALLENDATAHUB_API_KEY;
 const BASE_URL = (() => {
   const configured = (process.env.ALLENDATAHUB_BASE_URL || "https://allendatahub.onrender.com").trim();
@@ -25,10 +27,8 @@ function getAuthHeaders(extraHeaders: Record<string, string> = {}) {
   };
 }
 
-function generateIdempotencyKey(recipient: string, network: string, bundleSize: string | number, reference?: string) {
-  const safeRecipient = String(recipient || "customer").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 24) || "customer";
-  const size = extractVolume(bundleSize);
-  const stableReference = String(reference || `${safeRecipient}-${network}-${size}gb`).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 64) || "checkout";
+function generateIdempotencyKey(reference?: string) {
+  const stableReference = String(reference || randomUUID()).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 64) || "checkout";
   return `checkout-${stableReference}`;
 }
 
@@ -89,7 +89,7 @@ class AllenDataHubService {
       Accept: "application/json",
     };
 
-    const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey(recipient, network, bundleSize, `order-${recipient}-${network}-${size}`);
+    const idempotencyKey = options?.idempotencyKey || generateIdempotencyKey();
     headers["Idempotency-Key"] = idempotencyKey;
 
     const response = await fetch(`${BASE_URL}/orders`, {

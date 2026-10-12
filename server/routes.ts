@@ -773,7 +773,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   phoneNumber,
                   p.dataAmount,
                   p.network,
-                  p.name
+                  p.name,
+                  { idempotencyKey: `payment-order-${order.id}` },
                 );
                 console.log(`[PaymentVerifyOrders] AllenDataHub result - Success: ${vendorResult.success}, Message: ${vendorResult.message}`);
                 
@@ -1184,7 +1185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   phoneNumber,
                   p.dataAmount,
                   p.network,
-                  p.name
+                  p.name,
+                  { idempotencyKey: `checkout-order-${order.id}` },
                 );
                 await Order.findByIdAndUpdate(order.id, {
                   $set: {
